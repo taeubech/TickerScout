@@ -16,14 +16,14 @@ Live stock quote grid with a C# SignalR backend and a React + TypeScript + AG Gr
 ## Run backend
 
 ```bash
-cd /home/runner/work/TickerScout/TickerScout/backend
+cd backend
 dotnet run
 ```
 
 ## Run frontend
 
 ```bash
-cd /home/runner/work/TickerScout/TickerScout/frontend
+cd frontend
 npm install
 npm run dev
 ```
@@ -32,7 +32,7 @@ The frontend connects to the SignalR hub using `VITE_HUB_URL` (defaults to `http
 
 ## Configurable symbols
 
-Edit `/home/runner/work/TickerScout/TickerScout/backend/appsettings.json`:
+Edit `backend/appsettings.json`:
 
 - `Quote.Symbols`: symbol list used by the simulator
 - `Quote.UpdateIntervalMs`: update interval in milliseconds
