@@ -1,0 +1,11 @@
+# .NET build output
+**/bin/
+**/obj/
+
+# Node/Vite build output
+**/node_modules/
+**/dist/
+
+# Logs
+*.log
+npm-debug.log*
