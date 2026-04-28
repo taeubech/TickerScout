@@ -213,6 +213,7 @@ function App() {
     <main>
       <header>
         <h1>TickerScout Live Quotes</h1>
+        <span className="aeroplane" aria-label="aeroplane" role="img">✈</span>
         <p>
           SignalR status: <strong>{status}</strong>
         </p>
