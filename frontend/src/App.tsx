@@ -11,6 +11,7 @@ import type {
 } from 'ag-grid-community'
 import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community'
 import type { Quote, QuoteEdit } from './types/quote'
+import { sendPrompt } from './services/aiService'
 import 'ag-grid-community/styles/ag-grid.css'
 import 'ag-grid-community/styles/ag-theme-quartz.css'
 import './App.css'
@@ -182,22 +183,8 @@ function App() {
     setAiResponse(null)
 
     try {
-      const response = await fetch('/api/ai/prompt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: trimmed }),
-      })
-
-      if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`)
-      }
-
-      const data: unknown = await response.json()
-      if (typeof data !== 'object' || data === null || !('response' in data) || typeof (data as Record<string, unknown>).response !== 'string') {
-        throw new Error('Unexpected response format from server')
-      }
-
-      setAiResponse((data as { response: string }).response)
+      const text = await sendPrompt(trimmed)
+      setAiResponse(text)
       setPrompt('')
     } catch (err) {
       setAiResponse(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`)
