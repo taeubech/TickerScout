@@ -171,7 +171,7 @@ function App() {
     knownSymbolsRef.current = new Set(snapshot.map((q) => q.symbol))
   }
 
-  const onPromptSubmit = async (e: React.FormEvent) => {
+  const onPromptSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault()
     const trimmed = prompt.trim()
     if (!trimmed || isSubmitting) {
@@ -192,8 +192,12 @@ function App() {
         throw new Error(`Server error: ${response.status}`)
       }
 
-      const data = await response.json() as { response: string }
-      setAiResponse(data.response)
+      const data: unknown = await response.json()
+      if (typeof data !== 'object' || data === null || !('response' in data) || typeof (data as Record<string, unknown>).response !== 'string') {
+        throw new Error('Unexpected response format from server')
+      }
+
+      setAiResponse((data as { response: string }).response)
       setPrompt('')
     } catch (err) {
       setAiResponse(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`)
@@ -248,7 +252,7 @@ function App() {
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault()
-                void onPromptSubmit(e as unknown as React.FormEvent)
+                void onPromptSubmit(e)
               }
             }}
             rows={3}
