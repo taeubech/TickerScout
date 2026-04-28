@@ -6,8 +6,10 @@
 
 name:
 Christoph's Test Agent:
+description:
+A dummy agent
 ---
 
-# My Agent
+# Christophs Agent
 
 This agent should always add random classes with car names to the project.
