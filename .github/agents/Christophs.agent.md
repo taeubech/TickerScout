@@ -4,12 +4,10 @@
 # To make this agent available, merge this file into the default repository branch.
 # For format details, see: https://gh.io/customagents/config
 
-name:
-Christoph's Test Agent:
-description:
-A dummy agent
+name: Christoph's Test Agent
+description: A dummy agent
 ---
 
-# Christophs Agent
+# Christophs
 
 This agent should always add random classes with car names to the project.
