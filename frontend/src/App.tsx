@@ -11,6 +11,7 @@ import type {
 } from 'ag-grid-community'
 import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community'
 import type { Quote, QuoteEdit } from './types/quote'
+import { sendPrompt } from './services/aiService'
 import 'ag-grid-community/styles/ag-grid.css'
 import 'ag-grid-community/styles/ag-theme-quartz.css'
 import './App.css'
@@ -34,6 +35,9 @@ const parseNumber = (params: ValueParserParams<Quote>) => {
 function App() {
   const [status, setStatus] = useState('Connecting...')
   const [snapshot, setSnapshot] = useState<Quote[]>([])
+  const [prompt, setPrompt] = useState('')
+  const [aiResponse, setAiResponse] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const connectionRef = useRef<HubConnection | null>(null)
   const gridApiRef = useRef<GridApi<Quote> | null>(null)
   const knownSymbolsRef = useRef<Set<string>>(new Set())
@@ -168,6 +172,27 @@ function App() {
     knownSymbolsRef.current = new Set(snapshot.map((q) => q.symbol))
   }
 
+  const onPromptSubmit = async (e: React.SyntheticEvent) => {
+    e.preventDefault()
+    const trimmed = prompt.trim()
+    if (!trimmed || isSubmitting) {
+      return
+    }
+
+    setIsSubmitting(true)
+    setAiResponse(null)
+
+    try {
+      const text = await sendPrompt(trimmed)
+      setAiResponse(text)
+      setPrompt('')
+    } catch (err) {
+      setAiResponse(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   const onCellValueChanged = (event: CellValueChangedEvent<Quote>) => {
     if (!event.data || event.newValue === event.oldValue) {
       return
@@ -203,6 +228,33 @@ function App() {
           onCellValueChanged={onCellValueChanged}
           animateRows
         />
+      </section>
+      <section className="ai-prompt-shell">
+        <form onSubmit={onPromptSubmit} className="ai-prompt-form">
+          <textarea
+            className="ai-prompt-input"
+            placeholder="Ask the AI agent about your tickers…"
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                void onPromptSubmit(e)
+              }
+            }}
+            rows={3}
+            disabled={isSubmitting}
+          />
+          <button type="submit" className="ai-prompt-submit" disabled={isSubmitting || !prompt.trim()}>
+            {isSubmitting ? 'Sending…' : 'Send'}
+          </button>
+        </form>
+        {aiResponse !== null && (
+          <div className="ai-prompt-response">
+            <strong>AI response:</strong>
+            <p>{aiResponse}</p>
+          </div>
+        )}
       </section>
     </main>
   )
