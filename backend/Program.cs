@@ -7,6 +7,8 @@ builder.Services.Configure<QuoteOptions>(builder.Configuration.GetSection("Quote
 builder.Services.AddSingleton<QuoteStore>();
 builder.Services.AddHostedService<QuoteSimulatorService>();
 builder.Services.AddSignalR();
+builder.Services.AddScoped<IAiService, AiService>();
+builder.Services.AddControllers();
 
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
     ?? ["http://localhost:5173"];
@@ -28,5 +30,6 @@ app.UseCors("DevCors");
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 app.MapHub<QuoteHub>("/hubs/quotes");
+app.MapControllers();
 
 app.Run();
