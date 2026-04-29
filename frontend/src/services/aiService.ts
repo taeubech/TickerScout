@@ -1,25 +1,38 @@
-const AI_PROMPT_URL = '/api/ai/prompt'
+const AI_PROMPT_URL = 'https://localhost:7283'
+
+interface AiPromptResponse {
+  reply: string
+}
 
 export async function sendPrompt(prompt: string): Promise<string> {
-  const response = await fetch(AI_PROMPT_URL, {
+  const response = await fetch(`${AI_PROMPT_URL}/api/ai/prompt`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ prompt }),
   })
 
   if (!response.ok) {
-    throw new Error(`Server error: ${response.status}`)
+    let message = `Server error: ${response.status}`
+    try {
+      const errorData = await response.json() as Record<string, unknown>
+      if (typeof errorData.detail === 'string' && errorData.detail) {
+        message += ` - ${errorData.detail}`
+      }
+    } catch {
+      // ignore JSON parse errors
+    }
+    throw new Error(message)
   }
 
   const data: unknown = await response.json()
   if (
     typeof data !== 'object' ||
     data === null ||
-    !('response' in data) ||
-    typeof (data as Record<string, unknown>).response !== 'string'
+    !('reply' in data) ||
+    typeof (data as Record<string, unknown>).reply !== 'string'
   ) {
     throw new Error('Unexpected response format from server')
   }
 
-  return (data as { response: string }).response
+  return (data as AiPromptResponse).reply
 }

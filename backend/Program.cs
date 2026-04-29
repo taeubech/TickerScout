@@ -1,3 +1,4 @@
+using Scalar.AspNetCore;
 using TickerScout.Backend;
 using TickerScout.Backend.Services;
 
@@ -7,6 +8,9 @@ builder.Services.Configure<QuoteOptions>(builder.Configuration.GetSection("Quote
 builder.Services.AddSingleton<QuoteStore>();
 builder.Services.AddHostedService<QuoteSimulatorService>();
 builder.Services.AddSignalR();
+builder.Services.AddScoped<IAiService, AiService>();
+builder.Services.AddControllers();
+builder.Services.AddOpenApi();
 
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
     ?? ["http://localhost:5173"];
@@ -26,7 +30,11 @@ var app = builder.Build();
 
 app.UseCors("DevCors");
 
+app.MapOpenApi();
+app.MapScalarApiReference();
+
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 app.MapHub<QuoteHub>("/hubs/quotes");
+app.MapControllers();
 
 app.Run();
