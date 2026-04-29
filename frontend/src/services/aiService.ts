@@ -12,7 +12,16 @@ export async function sendPrompt(prompt: string): Promise<string> {
   })
 
   if (!response.ok) {
-    throw new Error(`Server error: ${response.status}`)
+    let message = `Server error: ${response.status}`
+    try {
+      const errorData = await response.json() as Record<string, unknown>
+      if (typeof errorData.detail === 'string' && errorData.detail) {
+        message += ` - ${errorData.detail}`
+      }
+    } catch {
+      // ignore JSON parse errors
+    }
+    throw new Error(message)
   }
 
   const data: unknown = await response.json()

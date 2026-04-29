@@ -30,7 +30,7 @@ public sealed class AIController(IAiService aiService, ILogger<AIController> log
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Error processing AI prompt.");
-            return Problem(statusCode: StatusCodes.Status500InternalServerError);
+            return Problem(detail: ex.Message, statusCode: StatusCodes.Status500InternalServerError);
         }
     }
 }
