@@ -1,7 +1,7 @@
-const AI_PROMPT_URL = '/api/ai/prompt'
+const AI_PROMPT_URL = 'https://localhost:7283'
 
 export async function sendPrompt(prompt: string): Promise<string> {
-  const response = await fetch(AI_PROMPT_URL, {
+  const response = await fetch(`${AI_PROMPT_URL}/api/ai/prompt`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ prompt }),
