@@ -7,4 +7,6 @@ public sealed class Session
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
 
     public DateTimeOffset LastSeenAt { get; set; } = DateTimeOffset.UtcNow;
+
+    public string? AiConversationId { get; set; }
 }
