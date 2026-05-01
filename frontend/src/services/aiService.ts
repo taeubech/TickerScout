@@ -4,11 +4,11 @@ interface AiPromptResponse {
   reply: string
 }
 
-export async function sendPrompt(prompt: string): Promise<string> {
+export async function sendPrompt(prompt: string, sessionId?: string): Promise<string> {
   const response = await fetch(`${AI_PROMPT_URL}/api/ai/prompt`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt }),
+    body: JSON.stringify({ prompt, sessionId }),
   })
 
   if (!response.ok) {

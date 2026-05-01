@@ -189,7 +189,7 @@ function App() {
     setAiResponse(null)
 
     try {
-      const text = await sendPrompt(trimmed)
+      const text = await sendPrompt(trimmed, sessionId)
       setAiResponse(text)
       setPrompt('')
     } catch (err) {
