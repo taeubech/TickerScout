@@ -12,6 +12,8 @@ import type {
 import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community'
 import type { Quote, QuoteEdit } from './types/quote'
 import { sendPrompt } from './services/aiService'
+import { SessionContext } from './contexts/SessionContext'
+import { useSession } from './hooks/useSession'
 import 'ag-grid-community/styles/ag-grid.css'
 import 'ag-grid-community/styles/ag-theme-quartz.css'
 import './App.css'
@@ -33,6 +35,7 @@ const parseNumber = (params: ValueParserParams<Quote>) => {
 }
 
 function App() {
+  const sessionId = useSession()
   const [status, setStatus] = useState('Connecting...')
   const [snapshot, setSnapshot] = useState<Quote[]>([])
   const [prompt, setPrompt] = useState('')
@@ -147,6 +150,9 @@ function App() {
 
           setStatus('Connected')
           connectionRef.current = connection
+          void connection.invoke('RegisterSession', sessionId).catch((err: unknown) => {
+            console.error('Failed to register session:', err)
+          })
         })
         .catch(() => {
           if (!isMounted) {
@@ -165,7 +171,7 @@ function App() {
       connectionRef.current = null
       void connection.stop()
     }
-  }, [])
+  }, [sessionId])
 
   const onGridReady = (event: GridReadyEvent<Quote>) => {
     gridApiRef.current = event.api
@@ -210,6 +216,7 @@ function App() {
   }
 
   return (
+    <SessionContext.Provider value={sessionId}>
     <main>
       <header>
         <h1>TickerScout Live Quotes</h1>
@@ -257,6 +264,7 @@ function App() {
         )}
       </section>
     </main>
+    </SessionContext.Provider>
   )
 }
 

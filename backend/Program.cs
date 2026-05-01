@@ -6,6 +6,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<QuoteOptions>(builder.Configuration.GetSection("Quote"));
 builder.Services.AddSingleton<QuoteStore>();
+builder.Services.AddSingleton<SessionStore>();
 builder.Services.AddHostedService<QuoteSimulatorService>();
 builder.Services.AddSignalR();
 builder.Services.AddScoped<IAiService, AiService>();
