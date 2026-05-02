@@ -5,8 +5,8 @@ namespace TickerScout.Backend.Services;
 
 public sealed class StaticDataService(IConfiguration configuration) : IStaticDataService
 {
-    private const string DatabaseName = "tickerscout";
-    private const string CollectionName = "instruments";
+    private const string DatabaseName = "TickerScout";
+    private const string CollectionName = "Instruments";
 
     public IEnumerable<Instrument> GetAllInstruments()
     {
