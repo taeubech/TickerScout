@@ -10,6 +10,7 @@ builder.Services.AddSingleton<SessionStore>();
 builder.Services.AddHostedService<QuoteSimulatorService>();
 builder.Services.AddSignalR();
 builder.Services.AddScoped<IAiService, AiService>();
+builder.Services.AddSingleton<IStaticDataService, StaticDataService>();
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
