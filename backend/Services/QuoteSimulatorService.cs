@@ -8,17 +8,20 @@ public sealed class QuoteSimulatorService(
     IOptions<QuoteOptions> quoteOptions,
     QuoteStore quoteStore,
     IHubContext<QuoteHub> hubContext,
+    IStaticDataService staticDataService,
     ILogger<QuoteSimulatorService> logger) : BackgroundService
 {
     private readonly QuoteOptions _options = quoteOptions.Value;
     private readonly QuoteStore _quoteStore = quoteStore;
     private readonly IHubContext<QuoteHub> _hubContext = hubContext;
+    private readonly IStaticDataService _staticDataService = staticDataService;
     private readonly ILogger<QuoteSimulatorService> _logger = logger;
     private readonly Random _random = new();
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var symbols = _options.Symbols
+        var symbols = _staticDataService.GetAllInstruments()
+            .Select(i => i.Symbol)
             .Where(s => !string.IsNullOrWhiteSpace(s))
             .Select(s => s.Trim().ToUpperInvariant())
             .Distinct(StringComparer.OrdinalIgnoreCase)
