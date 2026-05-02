@@ -8,6 +8,7 @@ export type Quote = {
   bidSize: number
   askSize: number
   timestamp: string
+  instrumentType: 'Stock' | 'Future' | 'ETF'
 }
 
 export type QuoteEdit = Pick<Quote, 'symbol' | 'bid' | 'ask' | 'bidSize' | 'askSize'>

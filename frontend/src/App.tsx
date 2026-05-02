@@ -6,6 +6,7 @@ import type {
   ColDef,
   GridApi,
   GridReadyEvent,
+  RowClassParams,
   ValueFormatterParams,
   ValueParserParams,
 } from 'ag-grid-community'
@@ -234,6 +235,9 @@ function App() {
           onGridReady={onGridReady}
           onCellValueChanged={onCellValueChanged}
           animateRows
+          getRowStyle={(params: RowClassParams<Quote>) =>
+            params.data?.instrumentType === 'Future' ? { background: '#dbeafe' } : undefined
+          }
         />
       </section>
       <section className="ai-prompt-shell">

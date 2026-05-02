@@ -19,4 +19,6 @@ public sealed class Quote
     public int AskSize { get; set; }
 
     public DateTimeOffset Timestamp { get; set; }
+
+    public InstrumentType InstrumentType { get; set; }
 }
