@@ -27,7 +27,7 @@ public sealed class StaticDataController(IStaticDataService staticDataService, I
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving instruments.");
-            return Problem(detail: "An error occurred while retrieving instruments.", statusCode: StatusCodes.Status500InternalServerError);
+            return Problem(detail: $"An error occurred while retrieving instruments. {ex.Message}", statusCode: StatusCodes.Status500InternalServerError);
         }
     }
 }
