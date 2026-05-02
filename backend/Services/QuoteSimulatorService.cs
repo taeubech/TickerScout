@@ -20,11 +20,13 @@ public sealed class QuoteSimulatorService(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        static string NormalizeSymbol(string s) => s.Trim().ToUpperInvariant();
+
         var instruments = _staticDataService.GetAllInstruments()
             .Where(i => !string.IsNullOrWhiteSpace(i.Symbol))
-            .GroupBy(i => i.Symbol.Trim().ToUpperInvariant(), StringComparer.OrdinalIgnoreCase)
+            .GroupBy(i => NormalizeSymbol(i.Symbol), StringComparer.OrdinalIgnoreCase)
             .Select(g => g.First())
-            .ToDictionary(i => i.Symbol.Trim().ToUpperInvariant(), i => i.InstrumentType, StringComparer.OrdinalIgnoreCase);
+            .ToDictionary(i => NormalizeSymbol(i.Symbol), i => i.InstrumentType, StringComparer.OrdinalIgnoreCase);
 
         var symbols = instruments.Keys.ToArray();
 
