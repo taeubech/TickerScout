@@ -20,12 +20,15 @@ public sealed class QuoteSimulatorService(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var symbols = _staticDataService.GetAllInstruments()
-            .Select(i => i.Symbol)
-            .Where(s => !string.IsNullOrWhiteSpace(s))
-            .Select(s => s.Trim().ToUpperInvariant())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
+        static string NormalizeSymbol(string s) => s.Trim().ToUpperInvariant();
+
+        var instruments = _staticDataService.GetAllInstruments()
+            .Where(i => !string.IsNullOrWhiteSpace(i.Symbol))
+            .GroupBy(i => NormalizeSymbol(i.Symbol), StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .ToDictionary(i => NormalizeSymbol(i.Symbol), i => i.InstrumentType, StringComparer.OrdinalIgnoreCase);
+
+        var symbols = instruments.Keys.ToArray();
 
         if (symbols.Length == 0)
         {
@@ -34,7 +37,7 @@ public sealed class QuoteSimulatorService(
         }
 
         var delay = TimeSpan.FromMilliseconds(Math.Max(100, _options.UpdateIntervalMs));
-        var quotes = symbols.Select(SeedQuote).ToDictionary(q => q.Symbol, StringComparer.OrdinalIgnoreCase);
+        var quotes = symbols.Select(s => SeedQuote(s, instruments[s])).ToDictionary(q => q.Symbol, StringComparer.OrdinalIgnoreCase);
 
         foreach (var quote in quotes.Values)
         {
@@ -55,7 +58,7 @@ public sealed class QuoteSimulatorService(
         }
     }
 
-    private Quote SeedQuote(string symbol)
+    private Quote SeedQuote(string symbol, InstrumentType instrumentType)
     {
         var open = Math.Round(50 + _random.NextDouble() * 250, 2);
         var spread = Math.Round(0.01 + _random.NextDouble() * 0.2, 2);
@@ -72,7 +75,8 @@ public sealed class QuoteSimulatorService(
             Ask = ask,
             BidSize = _random.Next(25, 5000),
             AskSize = _random.Next(25, 5000),
-            Timestamp = DateTimeOffset.UtcNow
+            Timestamp = DateTimeOffset.UtcNow,
+            InstrumentType = instrumentType
         };
     }
 
@@ -94,7 +98,8 @@ public sealed class QuoteSimulatorService(
             Ask = nextAsk,
             BidSize = Math.Max(1, current.BidSize + _random.Next(-100, 101)),
             AskSize = Math.Max(1, current.AskSize + _random.Next(-100, 101)),
-            Timestamp = DateTimeOffset.UtcNow
+            Timestamp = DateTimeOffset.UtcNow,
+            InstrumentType = current.InstrumentType
         };
     }
 }
