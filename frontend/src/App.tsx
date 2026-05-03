@@ -236,7 +236,7 @@ function App() {
           onCellValueChanged={onCellValueChanged}
           animateRows
           getRowStyle={(params: RowClassParams<Quote>) =>
-            params.data?.instrumentType === 'Future' ? { background: '#dbeafe' } : undefined
+            params.data?.instrumentType === 1 ? { background: '#c2e5fd'} : undefined
           }
         />
       </section>
