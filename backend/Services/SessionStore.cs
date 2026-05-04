@@ -7,7 +7,6 @@ public sealed class SessionStore
 {
     private readonly ConcurrentDictionary<string, Session> _sessions = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, string> _connectionToSession = new(StringComparer.OrdinalIgnoreCase);
-    private readonly ConcurrentDictionary<string, byte> _activeConnections = new(StringComparer.OrdinalIgnoreCase);
 
     public Session GetOrCreate(string sessionId)
     {
@@ -25,7 +24,7 @@ public sealed class SessionStore
 
     public void AddConnection(string connectionId)
     {
-        _activeConnections[connectionId] = 0;
+        _connectionToSession[connectionId] = null!;
     }
 
     public void AssociateConnection(string connectionId, string sessionId)
@@ -35,11 +34,10 @@ public sealed class SessionStore
 
     public void RemoveConnection(string connectionId)
     {
-        _activeConnections.TryRemove(connectionId, out _);
         _connectionToSession.TryRemove(connectionId, out _);
     }
 
-    public IEnumerable<string> GetAllConnectionIds() => _activeConnections.Keys;
+    public IEnumerable<string> GetAllConnectionIds() => _connectionToSession.Keys;
 
     public Session? GetByConnectionId(string connectionId)
     {
