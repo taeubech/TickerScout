@@ -9,12 +9,14 @@ public sealed class QuoteSimulatorService(
     QuoteStore quoteStore,
     IHubContext<QuoteHub> hubContext,
     IStaticDataService staticDataService,
+    SessionStore sessionStore,
     ILogger<QuoteSimulatorService> logger) : BackgroundService
 {
     private readonly QuoteOptions _options = quoteOptions.Value;
     private readonly QuoteStore _quoteStore = quoteStore;
     private readonly IHubContext<QuoteHub> _hubContext = hubContext;
     private readonly IStaticDataService _staticDataService = staticDataService;
+    private readonly SessionStore _sessionStore = sessionStore;
     private readonly ILogger<QuoteSimulatorService> _logger = logger;
     private readonly Random _random = new();
 
@@ -51,7 +53,10 @@ public sealed class QuoteSimulatorService(
                 var next = NextQuote(quotes[symbol]);
                 quotes[symbol] = next;
                 _quoteStore.Upsert(next);
-                await _hubContext.Clients.All.SendAsync("ReceiveQuote", next, stoppingToken);
+                foreach (var connectionId in _sessionStore.GetAllConnectionIds())
+                {
+                    await _hubContext.Clients.Client(connectionId).SendAsync("ReceiveQuote", next, stoppingToken);
+                }
             }
 
             await Task.Delay(delay, stoppingToken);
