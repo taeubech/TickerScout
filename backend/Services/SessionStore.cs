@@ -22,6 +22,11 @@ public sealed class SessionStore
         return session;
     }
 
+    public void AddConnection(string connectionId)
+    {
+        _connectionToSession[connectionId] = null!;
+    }
+
     public void AssociateConnection(string connectionId, string sessionId)
     {
         _connectionToSession[connectionId] = sessionId;
@@ -31,6 +36,8 @@ public sealed class SessionStore
     {
         _connectionToSession.TryRemove(connectionId, out _);
     }
+
+    public IEnumerable<string> GetAllConnectionIds() => _connectionToSession.Keys;
 
     public Session? GetByConnectionId(string connectionId)
     {
