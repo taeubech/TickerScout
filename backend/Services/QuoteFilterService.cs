@@ -48,8 +48,13 @@ public sealed class QuoteFilterService(SessionStore sessionStore, QuoteStore quo
         };
     }
 
-    private static bool ApplyStringOperator(string fieldValue, FilterOperator op, string filterValue)
+    private static bool ApplyStringOperator(string? fieldValue, FilterOperator op, string filterValue)
     {
+        if (fieldValue is null)
+        {
+            return op == FilterOperator.NotEquals;
+        }
+
         return op switch
         {
             FilterOperator.Equals => string.Equals(fieldValue, filterValue, StringComparison.OrdinalIgnoreCase),
@@ -58,6 +63,8 @@ public sealed class QuoteFilterService(SessionStore sessionStore, QuoteStore quo
             _ => false
         };
     }
+
+    private const double NumericEpsilon = 1e-9;
 
     private static bool ApplyNumericOperator(double fieldValue, FilterOperator op, string filterValue)
     {
@@ -69,12 +76,12 @@ public sealed class QuoteFilterService(SessionStore sessionStore, QuoteStore quo
 
         return op switch
         {
-            FilterOperator.Equals => fieldValue == numericValue,
-            FilterOperator.NotEquals => fieldValue != numericValue,
+            FilterOperator.Equals => Math.Abs(fieldValue - numericValue) <= NumericEpsilon,
+            FilterOperator.NotEquals => Math.Abs(fieldValue - numericValue) > NumericEpsilon,
             FilterOperator.GreaterThan => fieldValue > numericValue,
-            FilterOperator.GreaterThanOrEquals => fieldValue >= numericValue,
+            FilterOperator.GreaterThanOrEquals => fieldValue >= numericValue || Math.Abs(fieldValue - numericValue) <= NumericEpsilon,
             FilterOperator.LessThan => fieldValue < numericValue,
-            FilterOperator.LessThanOrEquals => fieldValue <= numericValue,
+            FilterOperator.LessThanOrEquals => fieldValue <= numericValue || Math.Abs(fieldValue - numericValue) <= NumericEpsilon,
             _ => false
         };
     }
