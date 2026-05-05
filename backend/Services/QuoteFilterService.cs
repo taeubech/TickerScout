@@ -70,12 +70,12 @@ public sealed class QuoteFilterService() : IQuoteFilterService
         return filters.Any(filter => MatchesFilter(quote, filter));
     }
 
-    public void AddFilters(string connectionId, IEnumerable<QuoteFilter> filters)
+    public void SetFilters(string connectionId, IEnumerable<QuoteFilter> filters)
     {
         _filtersPerConnection.AddOrUpdate(
             connectionId, 
             (connId) => filters.ToList(),
-            (connId, existing) => existing.Concat(filters).ToList());
+            (connId, existing) => filters.ToList());
     }
 
     public void RemoveFilters(string connectionId)
