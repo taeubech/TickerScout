@@ -1,35 +1,11 @@
+using System.Collections.Concurrent;
 using TickerScout.Backend.Models;
 
 namespace TickerScout.Backend.Services;
 
-public sealed class QuoteFilterService(SessionStore sessionStore, QuoteStore quoteStore) : IQuoteFilterService
+public sealed class QuoteFilterService() : IQuoteFilterService
 {
-    private readonly SessionStore _sessionStore = sessionStore;
-    private readonly QuoteStore _quoteStore = quoteStore;
-
-    /// <summary>
-    /// Returns <c>true</c> when the session identified by <paramref name="sessionId"/> is valid
-    /// and at least one quote in the current snapshot satisfies every filter in
-    /// <paramref name="filters"/>.
-    /// </summary>
-    public bool Filter(string sessionId, IEnumerable<QuoteFilter> filters)
-    {
-        if (string.IsNullOrWhiteSpace(sessionId) ||
-            _sessionStore.GetBySessionId(sessionId) is null)
-        {
-            return false;
-        }
-
-        var filterList = filters?.ToList() ?? [];
-
-        if (filterList.Count == 0)
-        {
-            return true;
-        }
-
-        return _quoteStore.GetSnapshot()
-            .Any(quote => filterList.All(f => MatchesFilter(quote, f)));
-    }
+    private readonly ConcurrentDictionary<string, IEnumerable<QuoteFilter>> _filtersPerConnection = new();
 
     private static bool MatchesFilter(Quote quote, QuoteFilter filter)
     {
@@ -84,5 +60,26 @@ public sealed class QuoteFilterService(SessionStore sessionStore, QuoteStore quo
             FilterOperator.LessThanOrEquals => fieldValue <= numericValue || Math.Abs(fieldValue - numericValue) <= NumericEpsilon,
             _ => false
         };
+    }
+
+    public bool Pass(string connectionId, Quote quote)
+    {
+        if (!_filtersPerConnection.TryGetValue(connectionId, out var filters))
+            return true; // pass if no filters are configured
+
+        return filters.Any(filter => MatchesFilter(quote, filter));
+    }
+
+    public void AddFilters(string connectionId, IEnumerable<QuoteFilter> filters)
+    {
+        _filtersPerConnection.AddOrUpdate(
+            connectionId, 
+            (connId) => filters.ToList(),
+            (connId, existing) => existing.Concat(filters).ToList());
+    }
+
+    public void RemoveFilters(string connectionId)
+    {
+        _filtersPerConnection.TryRemove(connectionId, out _);
     }
 }
