@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using TickerScout.Backend.Models;
 using TickerScout.Backend.Services;
 
@@ -6,9 +7,15 @@ namespace TickerScout.Backend.Controllers;
 
 [ApiController]
 [Route("api/filter")]
-public sealed class FilterController(IQuoteFilterService quoteFilterService, ILogger<FilterController> logger) : ControllerBase
+public sealed class FilterController(
+    IQuoteFilterService quoteFilterService,
+    QuoteStore quoteStore,
+    IHubContext<QuoteHub> hubContext,
+    ILogger<FilterController> logger) : ControllerBase
 {
     private readonly IQuoteFilterService _quoteFilterService = quoteFilterService;
+    private readonly QuoteStore _quoteStore = quoteStore;
+    private readonly IHubContext<QuoteHub> _hubContext = hubContext;
     private readonly ILogger<FilterController> _logger = logger;
 
     /// <summary>
@@ -18,7 +25,7 @@ public sealed class FilterController(IQuoteFilterService quoteFilterService, ILo
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    public IActionResult FilterInstrument([FromQuery] string connectionId, [FromQuery] InstrumentType instrumentType)
+    public async Task<IActionResult> FilterInstrument([FromQuery] string connectionId, [FromQuery] InstrumentType instrumentType)
     {
         if (string.IsNullOrWhiteSpace(connectionId))
         {
@@ -40,6 +47,13 @@ public sealed class FilterController(IQuoteFilterService quoteFilterService, ILo
             };
 
             _quoteFilterService.SetFilters(connectionId, [filter]);
+
+            var filteredSnapshot = _quoteStore.GetSnapshot()
+                .Where(q => _quoteFilterService.Pass(connectionId, q))
+                .ToArray();
+
+            await _hubContext.Clients.Client(connectionId).SendAsync("ReceiveSnapshot", filteredSnapshot);
+
             return NoContent();
         }
         catch (Exception ex)
