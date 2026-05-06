@@ -121,14 +121,18 @@ public sealed class AiService(SessionStore sessionStore, IQuoteFilterService quo
 
         try
         {
-            using JsonDocument argsDoc = JsonDocument.Parse(functionCall.FunctionArguments);
-            var filters = argsDoc.RootElement.GetProperty("filters").EnumerateArray()
-                .Select(f => new QuoteFilter
-                {
-                    Field = Enum.Parse<QuoteField>(f.GetProperty("field").GetString()!),
-                    Operator = Enum.Parse<FilterOperator>(f.GetProperty("operator").GetString()!),
-                    Value = f.GetProperty("value").GetString()!
-                });
+            List<QuoteFilter> filters;
+            using (JsonDocument argsDoc = JsonDocument.Parse(functionCall.FunctionArguments))
+            {
+                filters = argsDoc.RootElement.GetProperty("filters").EnumerateArray()
+                    .Select(f => new QuoteFilter
+                    {
+                        Field = Enum.Parse<QuoteField>(f.GetProperty("field").GetString()!),
+                        Operator = Enum.Parse<FilterOperator>(f.GetProperty("operator").GetString()!),
+                        Value = f.GetProperty("value").GetString()!
+                    })
+                    .ToList();
+            }
 
             quoteFilterService.SetFilters(connectionId, filters);
             return ResponseItem.CreateFunctionCallOutputItem(functionCall.CallId, "Filters applied successfully.");
