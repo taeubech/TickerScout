@@ -4,10 +4,11 @@ using TickerScout.Backend.Services;
 
 namespace TickerScout.Backend;
 
-public sealed class QuoteHub(QuoteStore quoteStore, SessionStore sessionStore) : Hub
+public sealed class QuoteHub(QuoteStore quoteStore, SessionStore sessionStore, IQuoteFilterService quoteFilterService) : Hub
 {
     private readonly QuoteStore _quoteStore = quoteStore;
     private readonly SessionStore _sessionStore = sessionStore;
+    private readonly IQuoteFilterService _quoteFilterService = quoteFilterService;
 
     public override async Task OnConnectedAsync()
     {
@@ -19,6 +20,7 @@ public sealed class QuoteHub(QuoteStore quoteStore, SessionStore sessionStore) :
     public override Task OnDisconnectedAsync(Exception? exception)
     {
         _sessionStore.RemoveConnection(Context.ConnectionId);
+        _quoteFilterService.RemoveFilters(Context.ConnectionId);
         return base.OnDisconnectedAsync(exception);
     }
 
