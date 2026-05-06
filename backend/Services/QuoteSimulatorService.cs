@@ -61,6 +61,13 @@ public sealed class QuoteSimulatorService(
 
         _quoteFilterService.FiltersChanged += OnFiltersChanged;
 
+        void OnConnectionRemoved(string connectionId)
+        {
+            _quoteFilterService.RemoveFilters(connectionId);
+        }
+
+        _sessionStore.OnConnectionRemoved += OnConnectionRemoved;
+
         try
         {
             while (!stoppingToken.IsCancellationRequested)
@@ -84,6 +91,7 @@ public sealed class QuoteSimulatorService(
         finally
         {
             _quoteFilterService.FiltersChanged -= OnFiltersChanged;
+            _sessionStore.OnConnectionRemoved -= OnConnectionRemoved;
         }
     }
 

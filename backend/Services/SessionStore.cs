@@ -35,6 +35,7 @@ public sealed class SessionStore
     public void RemoveConnection(string connectionId)
     {
         _connectionToSession.TryRemove(connectionId, out _);
+        OnConnectionRemoved?.Invoke(connectionId);
     }
 
     public IEnumerable<string> GetAllConnectionIds() => _connectionToSession.Keys;
@@ -52,4 +53,6 @@ public sealed class SessionStore
 
     public Session? GetBySessionId(string sessionId) =>
         _sessions.TryGetValue(sessionId, out var session) ? session : null;
+
+    public event Action<string>? OnConnectionRemoved;
 }
