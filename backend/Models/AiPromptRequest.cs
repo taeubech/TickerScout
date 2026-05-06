@@ -8,4 +8,6 @@ public sealed class AiPromptRequest
     public required string Prompt { get; init; }
 
     public string? SessionId { get; init; }
+
+    public string? ConnectionId { get; init; }
 }
