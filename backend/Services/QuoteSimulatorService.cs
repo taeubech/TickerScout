@@ -48,22 +48,42 @@ public sealed class QuoteSimulatorService(
             _quoteStore.Upsert(quote);
         }
 
-        while (!stoppingToken.IsCancellationRequested)
+        void OnFiltersChanged(string connectionId)
         {
-            foreach (var symbol in symbols)
+            var snapshot = _quoteStore.GetSnapshot()
+                .Where(q => _quoteFilterService.Pass(connectionId, q))
+                .ToArray();
+            _ = _hubContext.Clients.Client(connectionId).SendAsync("ReceiveSnapshot", snapshot)
+                .ContinueWith(
+                    t => _logger.LogError(t.Exception, "Failed to send snapshot to connection {ConnectionId}.", connectionId),
+                    TaskContinuationOptions.OnlyOnFaulted);
+        }
+
+        _quoteFilterService.FiltersChanged += OnFiltersChanged;
+
+        try
+        {
+            while (!stoppingToken.IsCancellationRequested)
             {
-                var next = NextQuote(quotes[symbol]);
-                quotes[symbol] = next;
-                _quoteStore.Upsert(next);
+                foreach (var symbol in symbols)
+                {
+                    var next = NextQuote(quotes[symbol]);
+                    quotes[symbol] = next;
+                    _quoteStore.Upsert(next);
 
-                var connectionIds = _sessionStore.GetAllConnectionIds();
+                    var connectionIds = _sessionStore.GetAllConnectionIds();
 
-                await Task.WhenAll(connectionIds
-                    .Where(connectionId => _quoteFilterService.Pass(connectionId, next))
-                    .Select(connectionId => _hubContext.Clients.Client(connectionId).SendAsync("ReceiveQuote", next, stoppingToken)));
+                    await Task.WhenAll(connectionIds
+                        .Where(connectionId => _quoteFilterService.Pass(connectionId, next))
+                        .Select(connectionId => _hubContext.Clients.Client(connectionId).SendAsync("ReceiveQuote", next, stoppingToken)));
+                }
+
+                await Task.Delay(delay, stoppingToken);
             }
-
-            await Task.Delay(delay, stoppingToken);
+        }
+        finally
+        {
+            _quoteFilterService.FiltersChanged -= OnFiltersChanged;
         }
     }
 
