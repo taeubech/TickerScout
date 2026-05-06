@@ -4,7 +4,8 @@ namespace TickerScout.Backend.Services;
 
 public interface IQuoteFilterService
 {
+    event Action<string>? FiltersChanged;
     bool Pass(string connectionId, Quote quote);
     void SetFilters(string connectionId, IEnumerable<QuoteFilter> filters);
-    void RemoveFilters(string connectionId);    
+    void RemoveFilters(string connectionId);
 }

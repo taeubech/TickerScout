@@ -7,6 +7,8 @@ public sealed class QuoteFilterService() : IQuoteFilterService
 {
     private readonly ConcurrentDictionary<string, IEnumerable<QuoteFilter>> _filtersPerConnection = new();
 
+    public event Action<string>? FiltersChanged;
+
     private static bool MatchesFilter(Quote quote, QuoteFilter filter)
     {
         return filter.Field switch
@@ -76,6 +78,8 @@ public sealed class QuoteFilterService() : IQuoteFilterService
             connectionId, 
             (connId) => filters.ToList(),
             (connId, existing) => filters.ToList());
+
+        FiltersChanged?.Invoke(connectionId);
     }
 
     public void RemoveFilters(string connectionId)
