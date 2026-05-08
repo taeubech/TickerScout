@@ -42,7 +42,7 @@ public sealed class AiService(SessionStore sessionStore, IQuoteFilterService quo
                       },
                       "value": {
                         "type": "string",
-                        "description": "The value to compare against."
+                        "description": "The value to compare against. For InstrumentType fields, only the values 'Stock', 'Future', 'ETF' or null are allowed. Null means don't filter for any instrument type."
                       }
                     },
                     "required": ["field", "operator", "value"]
@@ -98,7 +98,7 @@ public sealed class AiService(SessionStore sessionStore, IQuoteFilterService quo
                 inputItems.Add(outputItem);
                 if (outputItem is FunctionCallResponseItem functionCall)
                 {
-                    inputItems.Add(ResolveToolCall(functionCall, request.ConnectionId));
+                    inputItems.Add(ResolveToolCall(functionCall, request.SessionId));
                     toolCallMade = true;
                 }
             }
@@ -107,16 +107,16 @@ public sealed class AiService(SessionStore sessionStore, IQuoteFilterService quo
         return Task.FromResult(new AiPromptResponse { Reply = response.GetOutputText() });
     }
 
-    private FunctionCallOutputResponseItem ResolveToolCall(FunctionCallResponseItem functionCall, string? connectionId)
+    private FunctionCallOutputResponseItem ResolveToolCall(FunctionCallResponseItem functionCall, string? sessionId)
     {
         if (functionCall.FunctionName != SetFiltersTool.FunctionName)
         {
             return ResponseItem.CreateFunctionCallOutputItem(functionCall.CallId, "error: unknown function");
         }
 
-        if (string.IsNullOrEmpty(connectionId))
+        if (string.IsNullOrEmpty(sessionId))
         {
-            return ResponseItem.CreateFunctionCallOutputItem(functionCall.CallId, "error: no active connection");
+            return ResponseItem.CreateFunctionCallOutputItem(functionCall.CallId, "error: no active session");
         }
 
         try
@@ -134,7 +134,7 @@ public sealed class AiService(SessionStore sessionStore, IQuoteFilterService quo
                     .ToList();
             }
 
-            quoteFilterService.SetFilters(connectionId, filters);
+            quoteFilterService.SetFilters(sessionId, filters);
             return ResponseItem.CreateFunctionCallOutputItem(functionCall.CallId, "Filters applied successfully.");
         }
         catch (Exception ex)

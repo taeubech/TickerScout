@@ -5,7 +5,7 @@ namespace TickerScout.Backend.Services;
 
 public sealed class QuoteFilterService() : IQuoteFilterService
 {
-    private readonly ConcurrentDictionary<string, IEnumerable<QuoteFilter>> _filtersPerConnection = new();
+    private readonly ConcurrentDictionary<string, IEnumerable<QuoteFilter>> _filtersPerSession = new();
 
     public event Action<string>? FiltersChanged;
 
@@ -31,6 +31,11 @@ public sealed class QuoteFilterService() : IQuoteFilterService
         if (fieldValue is null)
         {
             return op == FilterOperator.NotEquals;
+        }
+
+        if (filterValue is null)
+        {
+            return true;
         }
 
         return op switch
@@ -64,26 +69,33 @@ public sealed class QuoteFilterService() : IQuoteFilterService
         };
     }
 
-    public bool Pass(string connectionId, Quote quote)
+    public bool Pass(string sessionId, Quote quote)
     {
-        if (!_filtersPerConnection.TryGetValue(connectionId, out var filters))
+        if (!_filtersPerSession.TryGetValue(sessionId, out var filters))
             return true; // pass if no filters are configured
 
         return filters.Any(filter => MatchesFilter(quote, filter));
     }
 
-    public void SetFilters(string connectionId, IEnumerable<QuoteFilter> filters)
+    public void SetFilters(string sessionId, IEnumerable<QuoteFilter> filters)
     {
-        _filtersPerConnection.AddOrUpdate(
-            connectionId, 
-            (connId) => filters.ToList(),
-            (connId, existing) => filters.ToList());
+        if (filters.Any())
+        {
+            _filtersPerSession.AddOrUpdate(
+                sessionId,
+                (connId) => filters.ToList(),
+                (connId, existing) => filters.ToList());
+        }
+        else 
+        {             
+            _filtersPerSession.TryRemove(sessionId, out _);
+        }
 
-        FiltersChanged?.Invoke(connectionId);
+        FiltersChanged?.Invoke(sessionId);
     }
 
-    public void RemoveFilters(string connectionId)
+    public void RemoveFilters(string sessionId)
     {
-        _filtersPerConnection.TryRemove(connectionId, out _);
+        _filtersPerSession.TryRemove(sessionId, out _);
     }
 }

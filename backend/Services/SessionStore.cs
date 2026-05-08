@@ -38,7 +38,7 @@ public sealed class SessionStore
         OnConnectionRemoved?.Invoke(connectionId);
     }
 
-    public IEnumerable<string> GetAllConnectionIds() => _connectionToSession.Keys;
+    public IEnumerable<string> GetAllSessionIds() => _sessions.Keys;
 
     public Session? GetByConnectionId(string connectionId)
     {
@@ -51,8 +51,8 @@ public sealed class SessionStore
         return null;
     }
 
-    public Session? GetBySessionId(string sessionId) =>
-        _sessions.TryGetValue(sessionId, out var session) ? session : null;
+    public string GetConnectionId(string sessionId) =>
+        _connectionToSession.FirstOrDefault(kv => kv.Value == sessionId).Key ?? throw new KeyNotFoundException($"No session {sessionId}");
 
     public event Action<string>? OnConnectionRemoved;
 }
