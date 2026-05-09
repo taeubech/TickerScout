@@ -48,22 +48,22 @@ public sealed class QuoteSimulatorService(
             _quoteStore.Upsert(quote);
         }
 
-        void OnFiltersChanged(string connectionId)
+        void OnFiltersChanged(string sessionId)
         {
             var snapshot = _quoteStore.GetSnapshot()
-                .Where(q => _quoteFilterService.Pass(connectionId, q))
+                .Where(q => _quoteFilterService.Pass(sessionId, q))
                 .ToArray();
-            _ = _hubContext.Clients.Client(connectionId).SendAsync("ReceiveSnapshot", snapshot)
+            _ = _hubContext.Clients.Client(_sessionStore.GetConnectionId(sessionId)).SendAsync("ReceiveSnapshot", snapshot)
                 .ContinueWith(
-                    t => _logger.LogError(t.Exception, "Failed to send snapshot to connection {ConnectionId}.", connectionId),
+                    t => _logger.LogError(t.Exception, "Failed to send snapshot to connection {sessionId}.", sessionId),
                     TaskContinuationOptions.OnlyOnFaulted);
         }
 
         _quoteFilterService.FiltersChanged += OnFiltersChanged;
 
-        void OnConnectionRemoved(string connectionId)
+        void OnConnectionRemoved(string sessionId)
         {
-            _quoteFilterService.RemoveFilters(connectionId);
+            _quoteFilterService.RemoveFilters(sessionId);
         }
 
         _sessionStore.OnConnectionRemoved += OnConnectionRemoved;
@@ -78,11 +78,11 @@ public sealed class QuoteSimulatorService(
                     quotes[symbol] = next;
                     _quoteStore.Upsert(next);
 
-                    var connectionIds = _sessionStore.GetAllConnectionIds();
+                    var sessionIds = _sessionStore.GetAllSessionIds();
 
-                    await Task.WhenAll(connectionIds
-                        .Where(connectionId => _quoteFilterService.Pass(connectionId, next))
-                        .Select(connectionId => _hubContext.Clients.Client(connectionId).SendAsync("ReceiveQuote", next, stoppingToken)));
+                    await Task.WhenAll(sessionIds
+                        .Where(sessionId => _quoteFilterService.Pass(sessionId, next))
+                        .Select(sessionId => _hubContext.Clients.Client(_sessionStore.GetConnectionId(sessionId)).SendAsync("ReceiveQuote", next, stoppingToken)));
                 }
 
                 await Task.Delay(delay, stoppingToken);

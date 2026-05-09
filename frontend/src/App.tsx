@@ -235,9 +235,11 @@ function App() {
           onGridReady={onGridReady}
           onCellValueChanged={onCellValueChanged}
           animateRows
-          getRowStyle={(params: RowClassParams<Quote>) =>
-            params.data?.instrumentType === 1 ? { background: '#c2e5fd'} : undefined
-          }
+          getRowStyle={(params: RowClassParams<Quote>) => {
+            if (params.data?.instrumentType === 1) return { background: '#c2e5fd' }
+            if (params.data?.instrumentType === 2) return { background: '#fdeece'  }
+            return undefined
+          }}
         />
       </section>
       <section className="ai-prompt-shell">

@@ -6,13 +6,14 @@ namespace TickerScout.Backend.Services;
 public sealed class SessionStore
 {
     private readonly ConcurrentDictionary<string, Session> _sessions = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, Session> _disconnectedSessions = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, string> _connectionToSession = new(StringComparer.OrdinalIgnoreCase);
 
     public Session GetOrCreate(string sessionId)
     {
         var session = _sessions.AddOrUpdate(
             sessionId,
-            id => new Session { SessionId = id },
+            id => _disconnectedSessions.TryGetValue(id, out var session) ? session : new Session { SessionId = id },
             (_, existing) =>
             {
                 existing.LastSeenAt = DateTimeOffset.UtcNow;
@@ -34,11 +35,16 @@ public sealed class SessionStore
 
     public void RemoveConnection(string connectionId)
     {
-        _connectionToSession.TryRemove(connectionId, out _);
+        _connectionToSession.TryRemove(connectionId, out var sessionId);
+        if (sessionId != null)
+        {
+            _sessions.TryRemove(sessionId, out var session);
+            _disconnectedSessions.TryAdd(sessionId, session!);
+        }
         OnConnectionRemoved?.Invoke(connectionId);
     }
 
-    public IEnumerable<string> GetAllConnectionIds() => _connectionToSession.Keys;
+    public IEnumerable<string> GetAllSessionIds() => _sessions.Keys;
 
     public Session? GetByConnectionId(string connectionId)
     {
@@ -51,8 +57,8 @@ public sealed class SessionStore
         return null;
     }
 
-    public Session? GetBySessionId(string sessionId) =>
-        _sessions.TryGetValue(sessionId, out var session) ? session : null;
+    public string GetConnectionId(string sessionId) =>
+        _connectionToSession.FirstOrDefault(kv => kv.Value == sessionId).Key ?? "Invalid Session";
 
     public event Action<string>? OnConnectionRemoved;
 }

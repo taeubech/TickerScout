@@ -18,14 +18,20 @@ public sealed class FilterController(IQuoteFilterService quoteFilterService, ILo
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    public IActionResult FilterInstrument([FromQuery] string connectionId, [FromQuery] InstrumentType instrumentType)
+    public IActionResult FilterInstrument([FromQuery] string sessionId, [FromQuery] InstrumentType? instrumentType)
     {
-        if (string.IsNullOrWhiteSpace(connectionId))
+        if (string.IsNullOrWhiteSpace(sessionId))
         {
-            return BadRequest("connectionId must not be empty.");
+            return BadRequest($"{nameof(sessionId)} must not be empty.");
         }
 
-        if (!Enum.IsDefined(instrumentType))
+        if (instrumentType == null)
+        {
+            _quoteFilterService.SetFilters(sessionId, []);
+            return NoContent();
+        }
+
+        if (!Enum.IsDefined(instrumentType!.Value))
         {
             return BadRequest("instrumentType is not a valid value.");
         }
@@ -39,7 +45,7 @@ public sealed class FilterController(IQuoteFilterService quoteFilterService, ILo
                 Value = instrumentType.ToString()
             };
 
-            _quoteFilterService.SetFilters(connectionId, [filter]);
+            _quoteFilterService.SetFilters(sessionId, [filter]);
             return NoContent();
         }
         catch (Exception ex)

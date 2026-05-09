@@ -6,6 +6,6 @@ public interface IQuoteFilterService
 {
     event Action<string>? FiltersChanged;
     bool Pass(string connectionId, Quote quote);
-    void SetFilters(string connectionId, IEnumerable<QuoteFilter> filters);
-    void RemoveFilters(string connectionId);
+    void SetFilters(string sessionId, IEnumerable<QuoteFilter> filters);
+    void RemoveFilters(string sessionId);
 }
