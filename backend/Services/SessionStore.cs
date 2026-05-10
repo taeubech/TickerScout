@@ -23,15 +23,9 @@ public sealed class SessionStore
         return session;
     }
 
-    public void AddConnection(string connectionId)
-    {
-        _sessionIdsByConnectionId.TryAdd(connectionId, string.Empty);
-    }
-
     public void AssociateConnection(string connectionId, string sessionId)
     {
         if (_sessionIdsByConnectionId.TryGetValue(connectionId, out var previousSessionId) &&
-            !string.IsNullOrEmpty(previousSessionId) &&
             !string.Equals(previousSessionId, sessionId, StringComparison.OrdinalIgnoreCase))
         {
             _connectionIdsBySessionId.TryRemove(previousSessionId, out _);
@@ -54,8 +48,7 @@ public sealed class SessionStore
 
     public void RemoveConnection(string connectionId)
     {
-        if (!_sessionIdsByConnectionId.TryRemove(connectionId, out var sessionId) ||
-            string.IsNullOrEmpty(sessionId))
+        if (!_sessionIdsByConnectionId.TryRemove(connectionId, out var sessionId))
         {
             return;
         }
@@ -74,12 +67,11 @@ public sealed class SessionStore
         SessionDisconnected?.Invoke(sessionId);
     }
 
-    public IEnumerable<string> GetAllSessionIds() => _connectionIdsBySessionId.Keys;
+    public IEnumerable<string> GetConnectedSessionIds() => _connectionIdsBySessionId.Keys;
 
     public Session? GetByConnectionId(string connectionId)
     {
         if (_sessionIdsByConnectionId.TryGetValue(connectionId, out var sessionId) &&
-            !string.IsNullOrEmpty(sessionId) &&
             _sessionsById.TryGetValue(sessionId, out var session))
         {
             return session;

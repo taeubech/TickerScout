@@ -83,7 +83,7 @@ public sealed class QuoteSimulatorService(
                     quotes[symbol] = next;
                     _quoteStore.Upsert(next);
 
-                    var sessionIds = _sessionStore.GetAllSessionIds();
+                    var sessionIds = _sessionStore.GetConnectedSessionIds();
 
                     await Task.WhenAll(sessionIds
                         .Where(sessionId => _quoteFilterService.Pass(sessionId, next))
