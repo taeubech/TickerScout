@@ -75,6 +75,7 @@ public sealed class QuoteSimulatorService(
         {
             if (!_sessionStore.TryGetConnectionId(sessionId, out var connectionId))
             {
+                _logger.LogDebug("Skipping quote broadcast for disconnected session {sessionId}.", sessionId);
                 return Task.CompletedTask;
             }
 
