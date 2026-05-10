@@ -46,17 +46,6 @@ public sealed class SessionStore
 
     public IEnumerable<string> GetAllSessionIds() => _sessions.Keys;
 
-    public Session? GetByConnectionId(string connectionId)
-    {
-        if (_connectionToSession.TryGetValue(connectionId, out var sessionId) &&
-            _sessions.TryGetValue(sessionId, out var session))
-        {
-            return session;
-        }
-
-        return null;
-    }
-
     public string GetConnectionId(string sessionId) =>
         _connectionToSession.FirstOrDefault(kv => kv.Value == sessionId).Key ?? "Invalid Session";
 
