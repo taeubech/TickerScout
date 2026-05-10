@@ -1,17 +1,14 @@
 using Microsoft.AspNetCore.SignalR;
-using TickerScout.Backend.Models;
 using TickerScout.Backend.Services;
 
 namespace TickerScout.Backend;
 
-public sealed class QuoteHub(QuoteStore quoteStore, SessionStore sessionStore) : Hub
+public sealed class QuoteHub(SessionStore sessionStore, IServiceProvider serviceProvider) : Hub
 {
-    private readonly QuoteStore _quoteStore = quoteStore;
     private readonly SessionStore _sessionStore = sessionStore;
-
+    private readonly QuoteSimulatorService _quoteSimulatorService = serviceProvider.GetServices<IHostedService>().OfType<QuoteSimulatorService>().First();
     public override async Task OnConnectedAsync()
     {
-        await Clients.Caller.SendAsync("ReceiveSnapshot", _quoteStore.GetSnapshot());
         await base.OnConnectedAsync();
     }
 
@@ -30,17 +27,7 @@ public sealed class QuoteHub(QuoteStore quoteStore, SessionStore sessionStore) :
 
         var session = _sessionStore.GetOrCreate(sessionId);
         _sessionStore.AssociateConnection(Context.ConnectionId, session.SessionId);
+        _quoteSimulatorService.SendSnapshot(sessionId);
         return Task.CompletedTask;
-    }
-
-    public async Task UpdateQuote(QuoteEdit update)
-    {
-        var quote = _quoteStore.ApplyClientEdit(update);
-        if (quote is null)
-        {
-            return;
-        }
-
-        await Clients.All.SendAsync("ReceiveQuote", quote);
     }
 }

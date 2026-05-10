@@ -48,23 +48,7 @@ public sealed class QuoteSimulatorService(
             _quoteStore.Upsert(quote);
         }
 
-        void OnFiltersChanged(string sessionId)
-        {
-            if (!_sessionStore.TryGetConnectionId(sessionId, out var connectionId))
-            {
-                return;
-            }
-
-            var snapshot = _quoteStore.GetSnapshot()
-                .Where(q => _quoteFilterService.Pass(sessionId, q))
-                .ToArray();
-            _ = _hubContext.Clients.Client(connectionId).SendAsync("ReceiveSnapshot", snapshot)
-                .ContinueWith(
-                    t => _logger.LogError(t.Exception, "Failed to send snapshot to connection {sessionId}.", sessionId),
-                    TaskContinuationOptions.OnlyOnFaulted);
-        }
-
-        _quoteFilterService.FiltersChanged += OnFiltersChanged;
+        _quoteFilterService.FiltersChanged += SendSnapshot;
 
         Task SendQuoteToSessionAsync(string sessionId, Quote quote, CancellationToken cancellationToken)
         {
@@ -99,8 +83,24 @@ public sealed class QuoteSimulatorService(
         }
         finally
         {
-            _quoteFilterService.FiltersChanged -= OnFiltersChanged;
+            _quoteFilterService.FiltersChanged -= SendSnapshot;
         }
+    }
+
+    public void SendSnapshot(string sessionId)
+    {
+        if (!_sessionStore.TryGetConnectionId(sessionId, out var connectionId))
+        {
+            return;
+        }
+
+        var snapshot = _quoteStore.GetSnapshot()
+            .Where(q => _quoteFilterService.Pass(sessionId, q))
+            .ToArray();
+        _ = _hubContext.Clients.Client(connectionId).SendAsync("ReceiveSnapshot", snapshot)
+            .ContinueWith(
+                t => _logger.LogError(t.Exception, "Failed to send snapshot to connection {sessionId}.", sessionId),
+                TaskContinuationOptions.OnlyOnFaulted);
     }
 
     private Quote SeedQuote(string symbol, InstrumentType instrumentType)
