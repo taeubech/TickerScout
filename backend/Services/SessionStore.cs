@@ -5,15 +5,15 @@ namespace TickerScout.Backend.Services;
 
 public sealed class SessionStore
 {
-    private readonly ConcurrentDictionary<string, Session> _sessions = new(StringComparer.OrdinalIgnoreCase);
-    private readonly ConcurrentDictionary<string, Session> _disconnectedSessions = new(StringComparer.OrdinalIgnoreCase);
-    private readonly ConcurrentDictionary<string, string> _connectionToSession = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, Session> _sessionsById = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, string> _connectionIdsBySessionId = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, string> _sessionIdsByConnectionId = new(StringComparer.OrdinalIgnoreCase);
 
     public Session GetOrCreate(string sessionId)
     {
-        var session = _sessions.AddOrUpdate(
+        var session = _sessionsById.AddOrUpdate(
             sessionId,
-            id => _disconnectedSessions.TryGetValue(id, out var session) ? session : new Session { SessionId = id },
+            id => new Session { SessionId = id },
             (_, existing) =>
             {
                 existing.LastSeenAt = DateTimeOffset.UtcNow;
@@ -23,33 +23,56 @@ public sealed class SessionStore
         return session;
     }
 
-    public void AddConnection(string connectionId)
-    {
-        _connectionToSession[connectionId] = null!;
-    }
-
     public void AssociateConnection(string connectionId, string sessionId)
     {
-        _connectionToSession[connectionId] = sessionId;
+        if (_sessionIdsByConnectionId.TryGetValue(connectionId, out var previousSessionId) &&
+            !string.Equals(previousSessionId, sessionId, StringComparison.OrdinalIgnoreCase))
+        {
+            _connectionIdsBySessionId.TryRemove(previousSessionId, out _);
+        }
+
+        if (_connectionIdsBySessionId.TryGetValue(sessionId, out var previousConnectionId) &&
+            !string.Equals(previousConnectionId, connectionId, StringComparison.OrdinalIgnoreCase))
+        {
+            _sessionIdsByConnectionId.TryRemove(previousConnectionId, out _);
+        }
+
+        _sessionIdsByConnectionId[connectionId] = sessionId;
+        _connectionIdsBySessionId[sessionId] = connectionId;
+
+        if (_sessionsById.TryGetValue(sessionId, out var session))
+        {
+            session.LastSeenAt = DateTimeOffset.UtcNow;
+        }
     }
 
     public void RemoveConnection(string connectionId)
     {
-        _connectionToSession.TryRemove(connectionId, out var sessionId);
-        if (sessionId != null)
+        if (!_sessionIdsByConnectionId.TryRemove(connectionId, out var sessionId))
         {
-            _sessions.TryRemove(sessionId, out var session);
-            _disconnectedSessions.TryAdd(sessionId, session!);
+            return;
         }
-        OnConnectionRemoved?.Invoke(connectionId);
+
+        if (_connectionIdsBySessionId.TryGetValue(sessionId, out var activeConnectionId) &&
+            string.Equals(activeConnectionId, connectionId, StringComparison.OrdinalIgnoreCase))
+        {
+            _connectionIdsBySessionId.TryRemove(sessionId, out _);
+        }
+
+        if (_sessionsById.TryGetValue(sessionId, out var session))
+        {
+            session.LastSeenAt = DateTimeOffset.UtcNow;
+        }
+
+        SessionDisconnected?.Invoke(sessionId);
     }
 
-    public IEnumerable<string> GetAllSessionIds() => _sessions.Keys;
+    public IEnumerable<string> GetConnectedSessionIds() => _connectionIdsBySessionId.Keys;
 
     public Session? GetByConnectionId(string connectionId)
     {
-        if (_connectionToSession.TryGetValue(connectionId, out var sessionId) &&
-            _sessions.TryGetValue(sessionId, out var session))
+        if (_sessionIdsByConnectionId.TryGetValue(connectionId, out var sessionId) &&
+            _sessionsById.TryGetValue(sessionId, out var session))
         {
             return session;
         }
@@ -57,8 +80,8 @@ public sealed class SessionStore
         return null;
     }
 
-    public string GetConnectionId(string sessionId) =>
-        _connectionToSession.FirstOrDefault(kv => kv.Value == sessionId).Key ?? "Invalid Session";
+    public bool TryGetConnectionId(string sessionId, out string connectionId) =>
+        _connectionIdsBySessionId.TryGetValue(sessionId, out connectionId!);
 
-    public event Action<string>? OnConnectionRemoved;
+    public event Action<string>? SessionDisconnected;
 }

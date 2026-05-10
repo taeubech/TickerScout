@@ -11,7 +11,6 @@ public sealed class QuoteHub(QuoteStore quoteStore, SessionStore sessionStore) :
 
     public override async Task OnConnectedAsync()
     {
-        _sessionStore.AddConnection(Context.ConnectionId);
         await Clients.Caller.SendAsync("ReceiveSnapshot", _quoteStore.GetSnapshot());
         await base.OnConnectedAsync();
     }

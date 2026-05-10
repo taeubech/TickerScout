@@ -93,9 +93,4 @@ public sealed class QuoteFilterService() : IQuoteFilterService
 
         FiltersChanged?.Invoke(sessionId);
     }
-
-    public void RemoveFilters(string sessionId)
-    {
-        _filtersPerSession.TryRemove(sessionId, out _);
-    }
 }
