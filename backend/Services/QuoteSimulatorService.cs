@@ -66,11 +66,6 @@ public sealed class QuoteSimulatorService(
 
         _quoteFilterService.FiltersChanged += OnFiltersChanged;
 
-        void OnConnectionRemoved(string sessionId)
-        {
-            _quoteFilterService.RemoveFilters(sessionId);
-        }
-
         Task SendQuoteToSessionAsync(string sessionId, Quote quote, CancellationToken cancellationToken)
         {
             if (!_sessionStore.TryGetConnectionId(sessionId, out var connectionId))
@@ -81,8 +76,6 @@ public sealed class QuoteSimulatorService(
 
             return _hubContext.Clients.Client(connectionId).SendAsync("ReceiveQuote", quote, cancellationToken);
         }
-
-        _sessionStore.SessionDisconnected += OnConnectionRemoved;
 
         try
         {
@@ -107,7 +100,6 @@ public sealed class QuoteSimulatorService(
         finally
         {
             _quoteFilterService.FiltersChanged -= OnFiltersChanged;
-            _sessionStore.SessionDisconnected -= OnConnectionRemoved;
         }
     }
 
