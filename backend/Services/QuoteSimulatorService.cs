@@ -50,10 +50,15 @@ public sealed class QuoteSimulatorService(
 
         void OnFiltersChanged(string sessionId)
         {
+            if (!_sessionStore.TryGetConnectionId(sessionId, out var connectionId))
+            {
+                return;
+            }
+
             var snapshot = _quoteStore.GetSnapshot()
                 .Where(q => _quoteFilterService.Pass(sessionId, q))
                 .ToArray();
-            _ = _hubContext.Clients.Client(_sessionStore.GetConnectionId(sessionId)).SendAsync("ReceiveSnapshot", snapshot)
+            _ = _hubContext.Clients.Client(connectionId).SendAsync("ReceiveSnapshot", snapshot)
                 .ContinueWith(
                     t => _logger.LogError(t.Exception, "Failed to send snapshot to connection {sessionId}.", sessionId),
                     TaskContinuationOptions.OnlyOnFaulted);
@@ -66,7 +71,7 @@ public sealed class QuoteSimulatorService(
             _quoteFilterService.RemoveFilters(sessionId);
         }
 
-        _sessionStore.OnConnectionRemoved += OnConnectionRemoved;
+        _sessionStore.SessionDisconnected += OnConnectionRemoved;
 
         try
         {
@@ -82,7 +87,9 @@ public sealed class QuoteSimulatorService(
 
                     await Task.WhenAll(sessionIds
                         .Where(sessionId => _quoteFilterService.Pass(sessionId, next))
-                        .Select(sessionId => _hubContext.Clients.Client(_sessionStore.GetConnectionId(sessionId)).SendAsync("ReceiveQuote", next, stoppingToken)));
+                        .Select(sessionId => _sessionStore.TryGetConnectionId(sessionId, out var connectionId)
+                            ? _hubContext.Clients.Client(connectionId).SendAsync("ReceiveQuote", next, stoppingToken)
+                            : Task.CompletedTask));
                 }
 
                 await Task.Delay(delay, stoppingToken);
@@ -91,7 +98,7 @@ public sealed class QuoteSimulatorService(
         finally
         {
             _quoteFilterService.FiltersChanged -= OnFiltersChanged;
-            _sessionStore.OnConnectionRemoved -= OnConnectionRemoved;
+            _sessionStore.SessionDisconnected -= OnConnectionRemoved;
         }
     }
 
