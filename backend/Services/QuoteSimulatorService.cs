@@ -71,6 +71,16 @@ public sealed class QuoteSimulatorService(
             _quoteFilterService.RemoveFilters(sessionId);
         }
 
+        Task SendQuoteToSessionAsync(string sessionId, Quote quote, CancellationToken cancellationToken)
+        {
+            if (!_sessionStore.TryGetConnectionId(sessionId, out var connectionId))
+            {
+                return Task.CompletedTask;
+            }
+
+            return _hubContext.Clients.Client(connectionId).SendAsync("ReceiveQuote", quote, cancellationToken);
+        }
+
         _sessionStore.SessionDisconnected += OnConnectionRemoved;
 
         try
@@ -87,9 +97,7 @@ public sealed class QuoteSimulatorService(
 
                     await Task.WhenAll(sessionIds
                         .Where(sessionId => _quoteFilterService.Pass(sessionId, next))
-                        .Select(sessionId => _sessionStore.TryGetConnectionId(sessionId, out var connectionId)
-                            ? _hubContext.Clients.Client(connectionId).SendAsync("ReceiveQuote", next, stoppingToken)
-                            : Task.CompletedTask));
+                        .Select(sessionId => SendQuoteToSessionAsync(sessionId, next, stoppingToken)));
                 }
 
                 await Task.Delay(delay, stoppingToken);
