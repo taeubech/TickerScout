@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Threading;
 using TickerScout.Backend.Services;
 
@@ -30,7 +29,7 @@ public sealed class SymbolFilter(IEnumerable<string> symbols) : QuoteFilter
 
 public sealed class CurrencyFilter : QuoteFilter
 {
-    private static readonly ConcurrentDictionary<IStaticDataService, Lazy<Dictionary<string, Instrument>>> InstrumentsByService = new();
+    private static Lazy<Dictionary<string, Instrument>>? _cachedInstrumentsBySymbol;
 
     private readonly Dictionary<string, Instrument> _instrumentsBySymbol;
     private readonly HashSet<string> _currencies;
@@ -48,10 +47,11 @@ public sealed class CurrencyFilter : QuoteFilter
             throw new ArgumentException("At least one currency must be provided.", nameof(currencies));
         }
 
-        _instrumentsBySymbol = InstrumentsByService.GetOrAdd(
-            staticDataService,
-            service => new Lazy<Dictionary<string, Instrument>>(
-                () => service.GetAllInstruments()
+        var lazyCache = Volatile.Read(ref _cachedInstrumentsBySymbol);
+        if (lazyCache is null)
+        {
+            var newCache = new Lazy<Dictionary<string, Instrument>>(
+                () => staticDataService.GetAllInstruments()
                     .Where(instrument => !string.IsNullOrWhiteSpace(instrument.Symbol))
                     .Select(instrument => new
                     {
@@ -59,7 +59,12 @@ public sealed class CurrencyFilter : QuoteFilter
                         Instrument = instrument
                     })
                     .ToDictionary(entry => entry.Symbol, entry => entry.Instrument, StringComparer.OrdinalIgnoreCase),
-                LazyThreadSafetyMode.ExecutionAndPublication)).Value;
+                LazyThreadSafetyMode.ExecutionAndPublication);
+            Interlocked.CompareExchange(ref _cachedInstrumentsBySymbol, newCache, null);
+            lazyCache = _cachedInstrumentsBySymbol;
+        }
+
+        _instrumentsBySymbol = lazyCache.Value;
     }
 
     public override bool Pass(Quote quote)
