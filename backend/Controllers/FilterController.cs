@@ -61,14 +61,19 @@ public sealed class FilterController(
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    public IActionResult FilterCurrency([FromQuery] string sessionId, [FromQuery] string? currency)
+    public IActionResult FilterCurrency([FromQuery] string sessionId, [FromQuery] string[]? currencies)
     {
         if (string.IsNullOrWhiteSpace(sessionId))
         {
             return BadRequest($"{nameof(sessionId)} must not be empty.");
         }
 
-        if (string.IsNullOrWhiteSpace(currency))
+        string[] normalizedCurrencies = (currencies ?? [])
+            .Where(currency => !string.IsNullOrWhiteSpace(currency))
+            .Select(currency => currency.Trim())
+            .ToArray();
+
+        if (normalizedCurrencies.Length == 0)
         {
             _quoteFilterService.SetFilters(sessionId, null);
             return NoContent();
@@ -76,7 +81,7 @@ public sealed class FilterController(
 
         try
         {
-            var filter = new CurrencyFilter([currency], _staticDataService);
+            var filter = new CurrencyFilter(normalizedCurrencies, _staticDataService);
 
             _quoteFilterService.SetFilters(sessionId, filter);
             return NoContent();

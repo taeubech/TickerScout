@@ -28,6 +28,9 @@ public sealed class SymbolFilter(IEnumerable<string> symbols) : QuoteFilter
 
 public sealed class CurrencyFilter : QuoteFilter
 {
+    private static readonly Lock InstrumentsCacheLock = new();
+    private static Dictionary<string, Instrument>? _cachedInstrumentsBySymbol;
+
     private readonly Dictionary<string, Instrument> _instrumentsBySymbol;
     private readonly HashSet<string> _currencies;
 
@@ -39,16 +42,26 @@ public sealed class CurrencyFilter : QuoteFilter
                 .Select(currency => currency.Trim()),
             StringComparer.OrdinalIgnoreCase);
 
-        _instrumentsBySymbol = staticDataService.GetAllInstruments()
-            .Where(instrument => !string.IsNullOrWhiteSpace(instrument.Symbol))
-            .GroupBy(instrument => instrument.Symbol.Trim(), StringComparer.OrdinalIgnoreCase)
-            .Select(group => group.First())
-            .ToDictionary(instrument => instrument.Symbol.Trim(), StringComparer.OrdinalIgnoreCase);
+        if (_currencies.Count == 0)
+        {
+            throw new ArgumentException("At least one currency must be provided.", nameof(currencies));
+        }
+
+        lock (InstrumentsCacheLock)
+        {
+            _cachedInstrumentsBySymbol ??= staticDataService.GetAllInstruments()
+                .Where(instrument => !string.IsNullOrWhiteSpace(instrument.Symbol))
+                .GroupBy(instrument => instrument.Symbol.Trim(), StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.First())
+                .ToDictionary(instrument => instrument.Symbol.Trim(), StringComparer.OrdinalIgnoreCase);
+
+            _instrumentsBySymbol = _cachedInstrumentsBySymbol;
+        }
     }
 
     public override bool Pass(Quote quote)
     {
-        if (_currencies.Count == 0 || string.IsNullOrWhiteSpace(quote.Symbol))
+        if (string.IsNullOrWhiteSpace(quote.Symbol))
         {
             return false;
         }
