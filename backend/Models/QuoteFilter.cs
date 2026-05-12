@@ -1,34 +1,60 @@
 namespace TickerScout.Backend.Models;
 
-public enum QuoteField
+public abstract class QuoteFilter
 {
-    Symbol,
-    Bid,
-    Ask,
-    Last,
-    Open,
-    Close,
-    BidSize,
-    AskSize,
-    InstrumentType
+    public abstract bool Pass(Quote quote);
 }
 
-public enum FilterOperator
+
+public sealed class InstrumentTypeFilter(IEnumerable<InstrumentType> instrumentTypes) : QuoteFilter
 {
-    Equals,
-    NotEquals,
-    GreaterThan,
-    GreaterThanOrEquals,
-    LessThan,
-    LessThanOrEquals,
-    Contains
+    public override bool Pass(Quote quote)
+    {
+        return instrumentTypes.Contains(quote.InstrumentType);
+    }
 }
 
-public sealed class QuoteFilter
+
+public sealed class SymbolFilter(IEnumerable<string> symbols) : QuoteFilter
 {
-    public required QuoteField Field { get; init; }
+    public override bool Pass(Quote quote)
+    {
+        return symbols.Contains(quote.Symbol, StringComparer.OrdinalIgnoreCase);
+    }
+}
 
-    public required FilterOperator Operator { get; init; }
 
-    public required string Value { get; init; }
+public sealed class LastGreaterThanFilter(double threshold) : QuoteFilter
+{
+    public override bool Pass(Quote quote)
+    {
+        return quote.Last > threshold;
+    }
+}
+
+
+public sealed class NotFilter(QuoteFilter innerFilter) : QuoteFilter
+{
+    public override bool Pass(Quote quote)
+    {
+        return !innerFilter.Pass(quote);
+    }
+}
+
+
+public sealed class  AndFilter(QuoteFilter filter1, QuoteFilter filter2) : QuoteFilter
+{
+    public override bool Pass(Quote quote)
+    {
+        return filter1.Pass(quote) && filter2.Pass(quote);
+    }
+}
+
+
+public sealed class OrFilter(QuoteFilter filter1, QuoteFilter filter2) : QuoteFilter
+{
+    public override bool Pass(Quote quote)
+    {
+        return filter1.Pass(quote) || filter2.Pass(quote);
+    }
 }

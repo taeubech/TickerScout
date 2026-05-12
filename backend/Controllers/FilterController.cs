@@ -27,7 +27,7 @@ public sealed class FilterController(IQuoteFilterService quoteFilterService, ILo
 
         if (instrumentType == null)
         {
-            _quoteFilterService.SetFilters(sessionId, []);
+            _quoteFilterService.SetFilters(sessionId, null);
             return NoContent();
         }
 
@@ -38,14 +38,9 @@ public sealed class FilterController(IQuoteFilterService quoteFilterService, ILo
 
         try
         {
-            var filter = new QuoteFilter
-            {
-                Field = QuoteField.InstrumentType,
-                Operator = FilterOperator.Equals,
-                Value = instrumentType.ToString()
-            };
+            var filter = new InstrumentTypeFilter([instrumentType.Value]);
 
-            _quoteFilterService.SetFilters(sessionId, [filter]);
+            _quoteFilterService.SetFilters(sessionId, filter);
             return NoContent();
         }
         catch (Exception ex)
