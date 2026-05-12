@@ -19,39 +19,103 @@ public sealed class AiService(SessionStore sessionStore, IQuoteFilterService quo
 
     private static readonly FunctionTool SetFiltersTool = ResponseTool.CreateFunctionTool(
         functionName: "set_filters",
-        functionDescription: "Sets the quote filters for the current session. Only quotes matching at least one filter will be displayed. Call this whenever the user asks to filter, show, or restrict quotes by any field.",
+        functionDescription: "Sets the quote filter for the current session. Only quotes that match that filter will be displayed. Call this whenever the user asks to filter, show, or restrict quotes, stocks, prices, instruments or similar by any field. An empty filter (null) will show all quotes.",
         functionParameters: BinaryData.FromString("""
-            {
-              "type": "object",
-              "properties": {
-                "filters": {
-                  "type": "array",
-                  "description": "List of quote filters to apply. A quote passes if it matches at least one filter.",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "field": {
-                        "type": "string",
-                        "enum": ["Symbol", "Bid", "Ask", "Last", "Open", "Close", "BidSize", "AskSize", "InstrumentType"],
-                        "description": "The quote field to filter on."
-                      },
-                      "operator": {
-                        "type": "string",
-                        "enum": ["Equals", "NotEquals", "GreaterThan", "GreaterThanOrEquals", "LessThan", "LessThanOrEquals", "Contains"],
-                        "description": "The comparison operator to apply."
-                      },
-                      "value": {
-                        "type": "string",
-                        "description": "The value to compare against. For InstrumentType fields, only the values 'Stock', 'Future', 'ETF' or null are allowed. Null means don't filter for any instrument type."
-                      }
+        {
+          "type": "object",
+          "properties": {
+            "filter": {
+              "description": "The filter to apply. Can be a simple filter or a combination using And/Or/Not.",
+              "oneOf": [
+                {
+                  "type": "object",
+                  "description": "Filter quotes by instrument type(s)",
+                  "properties": {
+                    "type": { "const": "InstrumentType" },
+                    "instrumentTypes": {
+                      "type": "array",
+                      "items": { "type": "string", "enum": ["Stock", "Future", "ETF"] },
+                      "description": "List of instrument types to include"
+                    }
+                  },
+                  "required": ["type", "instrumentTypes"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "description": "Filter quotes by symbol(s)",
+                  "properties": {
+                    "type": { "const": "Symbol" },
+                    "symbols": {
+                      "type": "array",
+                      "items": { "type": "string" },
+                      "description": "List of symbols to include (e.g., ['AAPL', 'MSFT'])"
+                    }
+                  },
+                  "required": ["type", "symbols"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "description": "Filter quotes where Last price is greater than a threshold",
+                  "properties": {
+                    "type": { "const": "LastGreaterThan" },
+                    "threshold": {
+                      "type": "number",
+                      "description": "Minimum Last price value"
+                    }
+                  },
+                  "required": ["type", "threshold"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "description": "Logical NOT - inverts the inner filter",
+                  "properties": {
+                    "type": { "const": "Not" },
+                    "innerFilter": {
+                      "description": "The filter to negate"
+                    }
+                  },
+                  "required": ["type", "innerFilter"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "description": "Logical AND - both filters must match",
+                  "properties": {
+                    "type": { "const": "And" },
+                    "filter1": {
+                      "description": "First filter condition"
                     },
-                    "required": ["field", "operator", "value"]
-                  }
+                    "filter2": {
+                      "description": "Second filter condition"
+                    }
+                  },
+                  "required": ["type", "filter1", "filter2"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "description": "Logical OR - at least one filter must match",
+                  "properties": {
+                    "type": { "const": "Or" },
+                    "filter1": {
+                      "description": "First filter condition"
+                    },
+                    "filter2": {
+                      "description": "Second filter condition"
+                    }
+                  },
+                  "required": ["type", "filter1", "filter2"],
+                  "additionalProperties": false
                 }
-              },
-              "required": ["filters"]
+              ]
             }
-            """),
+          },
+          "required": ["filter"]
+        }
+        """),
         strictModeEnabled: false);
 
     public Task<AiPromptResponse> ProcessPromptAsync(AiPromptRequest request, CancellationToken cancellationToken = default)
@@ -121,20 +185,13 @@ public sealed class AiService(SessionStore sessionStore, IQuoteFilterService quo
 
         try
         {
-            List<QuoteFilter> filters;
             using (JsonDocument argsDoc = JsonDocument.Parse(functionCall.FunctionArguments))
             {
-                filters = argsDoc.RootElement.GetProperty("filters").EnumerateArray()
-                    .Select(f => new QuoteFilter
-                    {
-                        Field = Enum.Parse<QuoteField>(f.GetProperty("field").GetString()!),
-                        Operator = Enum.Parse<FilterOperator>(f.GetProperty("operator").GetString()!),
-                        Value = f.GetProperty("value").GetString()!
-                    })
-                    .ToList();
+                var filterJsonElement = argsDoc.RootElement.GetProperty("filter");
+                var filter = JsonToQuoteFilter(filterJsonElement);
+                quoteFilterService.SetFilters(sessionId, filter);
             }
 
-            quoteFilterService.SetFilters(sessionId, filters);
             return ResponseItem.CreateFunctionCallOutputItem(functionCall.CallId, "Filters applied successfully.");
         }
         catch (Exception ex)
@@ -162,5 +219,20 @@ public sealed class AiService(SessionStore sessionStore, IQuoteFilterService quo
 
         // No session context: fall back to a transient, single-use conversation.
         return projectClient.ProjectOpenAIClient.GetProjectConversationsClient().CreateProjectConversation().Value.Id;
+    }
+
+    private QuoteFilter JsonToQuoteFilter(JsonElement jsonElement)
+    {
+        QuoteFilter filter = jsonElement.GetProperty("type").GetString() switch
+        {
+            "instrumentTypes" => new InstrumentTypeFilter([.. jsonElement.GetProperty("instrumentTypes").EnumerateArray().Select(e => Enum.Parse<InstrumentType>(e.GetString()!))]),
+            "symbols" => new SymbolFilter([.. jsonElement.GetProperty("symbols").EnumerateArray().Select(e => e.GetString()!)]),
+            "threshold" => new LastGreaterThanFilter(jsonElement.GetProperty("threshold").GetDouble()),
+            "Not" => new NotFilter(JsonToQuoteFilter(jsonElement.GetProperty("innerFilter"))),
+            "And" => new AndFilter(JsonToQuoteFilter(jsonElement.GetProperty("filter1")), JsonToQuoteFilter(jsonElement.GetProperty("filter2"))),
+            "Or" => new OrFilter(JsonToQuoteFilter(jsonElement.GetProperty("filter1")), JsonToQuoteFilter(jsonElement.GetProperty("filter2"))),
+            _ => throw new Exception($"Unknown filter type: {jsonElement.GetProperty("type").GetString()}")
+        };
+        return filter;
     }
 }
