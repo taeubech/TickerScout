@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+using System.Threading;
 using TickerScout.Backend.Services;
 
 namespace TickerScout.Backend.Models;
@@ -28,8 +30,7 @@ public sealed class SymbolFilter(IEnumerable<string> symbols) : QuoteFilter
 
 public sealed class CurrencyFilter : QuoteFilter
 {
-    private static readonly Lock InstrumentsCacheLock = new();
-    private static Dictionary<string, Instrument>? _cachedInstrumentsBySymbol;
+    private static readonly ConcurrentDictionary<IStaticDataService, Lazy<Dictionary<string, Instrument>>> InstrumentsByService = new();
 
     private readonly Dictionary<string, Instrument> _instrumentsBySymbol;
     private readonly HashSet<string> _currencies;
@@ -47,16 +48,18 @@ public sealed class CurrencyFilter : QuoteFilter
             throw new ArgumentException("At least one currency must be provided.", nameof(currencies));
         }
 
-        lock (InstrumentsCacheLock)
-        {
-            _cachedInstrumentsBySymbol ??= staticDataService.GetAllInstruments()
-                .Where(instrument => !string.IsNullOrWhiteSpace(instrument.Symbol))
-                .GroupBy(instrument => instrument.Symbol.Trim(), StringComparer.OrdinalIgnoreCase)
-                .Select(group => group.First())
-                .ToDictionary(instrument => instrument.Symbol.Trim(), StringComparer.OrdinalIgnoreCase);
-
-            _instrumentsBySymbol = _cachedInstrumentsBySymbol;
-        }
+        _instrumentsBySymbol = InstrumentsByService.GetOrAdd(
+            staticDataService,
+            service => new Lazy<Dictionary<string, Instrument>>(
+                () => service.GetAllInstruments()
+                    .Where(instrument => !string.IsNullOrWhiteSpace(instrument.Symbol))
+                    .Select(instrument => new
+                    {
+                        Symbol = instrument.Symbol.Trim(),
+                        Instrument = instrument
+                    })
+                    .ToDictionary(entry => entry.Symbol, entry => entry.Instrument, StringComparer.OrdinalIgnoreCase),
+                LazyThreadSafetyMode.ExecutionAndPublication)).Value;
     }
 
     public override bool Pass(Quote quote)
@@ -67,6 +70,11 @@ public sealed class CurrencyFilter : QuoteFilter
         }
 
         if (!_instrumentsBySymbol.TryGetValue(quote.Symbol.Trim(), out var instrument))
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(instrument.Currency))
         {
             return false;
         }

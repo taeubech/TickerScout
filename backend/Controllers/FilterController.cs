@@ -88,7 +88,7 @@ public sealed class FilterController(
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error setting currency filter for connection.");
+            _logger.LogError(ex, "Error setting currency filter for session.");
             return Problem(detail: "An error occurred while setting the currency filter.", statusCode: StatusCodes.Status500InternalServerError);
         }
     }
