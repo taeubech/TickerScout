@@ -1,3 +1,5 @@
+using TickerScout.Backend.Services;
+
 namespace TickerScout.Backend.Models;
 
 public abstract class QuoteFilter
@@ -20,6 +22,43 @@ public sealed class SymbolFilter(IEnumerable<string> symbols) : QuoteFilter
     public override bool Pass(Quote quote)
     {
         return symbols.Contains(quote.Symbol, StringComparer.OrdinalIgnoreCase);
+    }
+}
+
+
+public sealed class CurrencyFilter : QuoteFilter
+{
+    private readonly Dictionary<string, Instrument> _instrumentsBySymbol;
+    private readonly HashSet<string> _currencies;
+
+    public CurrencyFilter(IEnumerable<string> currencies, IStaticDataService staticDataService)
+    {
+        _currencies = new HashSet<string>(
+            currencies
+                .Where(currency => !string.IsNullOrWhiteSpace(currency))
+                .Select(currency => currency.Trim()),
+            StringComparer.OrdinalIgnoreCase);
+
+        _instrumentsBySymbol = staticDataService.GetAllInstruments()
+            .Where(instrument => !string.IsNullOrWhiteSpace(instrument.Symbol))
+            .GroupBy(instrument => instrument.Symbol.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .ToDictionary(instrument => instrument.Symbol.Trim(), StringComparer.OrdinalIgnoreCase);
+    }
+
+    public override bool Pass(Quote quote)
+    {
+        if (_currencies.Count == 0 || string.IsNullOrWhiteSpace(quote.Symbol))
+        {
+            return false;
+        }
+
+        if (!_instrumentsBySymbol.TryGetValue(quote.Symbol.Trim(), out var instrument))
+        {
+            return false;
+        }
+
+        return _currencies.Contains(instrument.Currency);
     }
 }
 
