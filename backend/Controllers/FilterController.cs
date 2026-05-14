@@ -81,7 +81,7 @@ public sealed class FilterController(
 
         try
         {
-            var filter = new CurrencyFilter(normalizedCurrencies, _staticDataService);
+            var filter = new CurrencyFilter(normalizedCurrencies);
 
             _quoteFilterService.SetFilters(sessionId, filter);
             return NoContent();

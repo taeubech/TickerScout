@@ -31,6 +31,9 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+// Initialize ServiceLocator for static access to services
+ServiceLocator.Initialize(app.Services);
+
 app.UseCors("DevCors");
 
 app.MapOpenApi();

@@ -1,4 +1,3 @@
-using System.Threading;
 using TickerScout.Backend.Services;
 
 namespace TickerScout.Backend.Models;
@@ -27,31 +26,22 @@ public sealed class SymbolFilter(IEnumerable<string> symbols) : QuoteFilter
 }
 
 
-public sealed class CurrencyFilter : QuoteFilter
+public sealed class CurrencyFilter(IEnumerable<string> currencies) : QuoteFilter
 {
     private static Lazy<Dictionary<string, Instrument>>? _cachedInstrumentsBySymbol;
 
-    private readonly Dictionary<string, Instrument> _instrumentsBySymbol;
-    private readonly HashSet<string> _currencies;
-
-    public CurrencyFilter(IEnumerable<string> currencies, IStaticDataService staticDataService)
+    public override bool Pass(Quote quote)
     {
-        _currencies = new HashSet<string>(
-            currencies
-                .Where(currency => !string.IsNullOrWhiteSpace(currency))
-                .Select(currency => currency.Trim()),
-            StringComparer.OrdinalIgnoreCase);
-
-        if (_currencies.Count == 0)
+        if (string.IsNullOrWhiteSpace(quote.Symbol))
         {
-            throw new ArgumentException("At least one currency must be provided.", nameof(currencies));
+            return false;
         }
 
         var lazyCache = Volatile.Read(ref _cachedInstrumentsBySymbol);
         if (lazyCache is null)
         {
             var newCache = new Lazy<Dictionary<string, Instrument>>(
-                () => staticDataService.GetAllInstruments()
+                () => ServiceLocator.GetService<IStaticDataService>().GetAllInstruments()
                     .Where(instrument => !string.IsNullOrWhiteSpace(instrument.Symbol))
                     .Select(instrument => new
                     {
@@ -64,17 +54,7 @@ public sealed class CurrencyFilter : QuoteFilter
             lazyCache = _cachedInstrumentsBySymbol;
         }
 
-        _instrumentsBySymbol = lazyCache.Value;
-    }
-
-    public override bool Pass(Quote quote)
-    {
-        if (string.IsNullOrWhiteSpace(quote.Symbol))
-        {
-            return false;
-        }
-
-        if (!_instrumentsBySymbol.TryGetValue(quote.Symbol.Trim(), out var instrument))
+        if (!lazyCache.Value.TryGetValue(quote.Symbol.Trim(), out var instrument))
         {
             return false;
         }
@@ -84,7 +64,7 @@ public sealed class CurrencyFilter : QuoteFilter
             return false;
         }
 
-        return _currencies.Contains(instrument.Currency);
+        return currencies.Contains(instrument.Currency);
     }
 }
 
