@@ -24,12 +24,17 @@ public sealed class SymbolFilter(IEnumerable<string> symbols) : QuoteFilter
 }
 
 
-public sealed class CurrencyFilter(IEnumerable<string> currencies, IEnumerable<Instrument> instruments) : QuoteFilter
+public sealed class CurrencyFilter(IEnumerable<string> currencies) : QuoteFilter
 {
-    private readonly Dictionary<string, Instrument> _instrumentsBySymbol = instruments
-        .Where(instrument => !string.IsNullOrWhiteSpace(instrument.Symbol))
-        .GroupBy(instrument => instrument.Symbol.Trim(), StringComparer.OrdinalIgnoreCase)
-        .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+    private static Dictionary<string, Instrument> _instrumentsBySymbol = [];
+
+    public static void Initialize(IEnumerable<Instrument> instruments)
+    {
+        _instrumentsBySymbol = instruments
+            .Where(instrument => !string.IsNullOrWhiteSpace(instrument.Symbol))
+            .GroupBy(instrument => instrument.Symbol.Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+    }
 
     private readonly HashSet<string> _currencies = new(
         currencies

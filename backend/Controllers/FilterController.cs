@@ -8,11 +8,9 @@ namespace TickerScout.Backend.Controllers;
 [Route("api/filter")]
 public sealed class FilterController(
     IQuoteFilterService quoteFilterService,
-    IStaticDataService staticDataService,
     ILogger<FilterController> logger) : ControllerBase
 {
     private readonly IQuoteFilterService _quoteFilterService = quoteFilterService;
-    private readonly IStaticDataService _staticDataService = staticDataService;
     private readonly ILogger<FilterController> _logger = logger;
 
     /// <summary>
@@ -81,7 +79,7 @@ public sealed class FilterController(
 
         try
         {
-            var filter = new CurrencyFilter(normalizedCurrencies, _staticDataService.GetAllInstruments());
+            var filter = new CurrencyFilter(normalizedCurrencies);
 
             _quoteFilterService.SetFilters(sessionId, filter);
             return NoContent();

@@ -1,5 +1,6 @@
 using Scalar.AspNetCore;
 using TickerScout.Backend;
+using TickerScout.Backend.Models;
 using TickerScout.Backend.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -30,6 +31,9 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+var staticDataService = app.Services.GetRequiredService<IStaticDataService>();
+CurrencyFilter.Initialize(staticDataService.GetAllInstruments());
 
 app.UseCors("DevCors");
 
