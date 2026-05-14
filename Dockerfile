@@ -15,7 +15,7 @@ WORKDIR /app
 
 # Copy . NET project files
 COPY backend/*.csproj ./TickerScoutApi/
-WORKDIR /app/HolidayCampsApi
+WORKDIR /app/TickerScoutApi
 RUN dotnet restore
 
 # Copy remaining source code and build
