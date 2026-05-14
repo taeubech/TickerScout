@@ -6,9 +6,13 @@ namespace TickerScout.Backend.Controllers;
 
 [ApiController]
 [Route("api/filter")]
-public sealed class FilterController(IQuoteFilterService quoteFilterService, ILogger<FilterController> logger) : ControllerBase
+public sealed class FilterController(
+    IQuoteFilterService quoteFilterService,
+    IStaticDataService staticDataService,
+    ILogger<FilterController> logger) : ControllerBase
 {
     private readonly IQuoteFilterService _quoteFilterService = quoteFilterService;
+    private readonly IStaticDataService _staticDataService = staticDataService;
     private readonly ILogger<FilterController> _logger = logger;
 
     /// <summary>
@@ -47,6 +51,45 @@ public sealed class FilterController(IQuoteFilterService quoteFilterService, ILo
         {
             _logger.LogError(ex, "Error setting instrument filter for connection.");
             return Problem(detail: "An error occurred while setting the instrument filter.", statusCode: StatusCodes.Status500InternalServerError);
+        }
+    }
+
+    /// <summary>
+    /// Sets a filter on quotes for the given connection by currency.
+    /// </summary>
+    [HttpPost("currency")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public IActionResult FilterCurrency([FromQuery] string sessionId, [FromQuery] string[]? currencies)
+    {
+        if (string.IsNullOrWhiteSpace(sessionId))
+        {
+            return BadRequest($"{nameof(sessionId)} must not be empty.");
+        }
+
+        string[] normalizedCurrencies = (currencies ?? [])
+            .Where(currency => !string.IsNullOrWhiteSpace(currency))
+            .Select(currency => currency.Trim())
+            .ToArray();
+
+        if (normalizedCurrencies.Length == 0)
+        {
+            _quoteFilterService.SetFilters(sessionId, null);
+            return NoContent();
+        }
+
+        try
+        {
+            var filter = new CurrencyFilter(normalizedCurrencies);
+
+            _quoteFilterService.SetFilters(sessionId, filter);
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error setting currency filter for session.");
+            return Problem(detail: "An error occurred while setting the currency filter.", statusCode: StatusCodes.Status500InternalServerError);
         }
     }
 }

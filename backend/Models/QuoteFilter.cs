@@ -1,3 +1,5 @@
+using TickerScout.Backend.Services;
+
 namespace TickerScout.Backend.Models;
 
 public abstract class QuoteFilter
@@ -20,6 +22,49 @@ public sealed class SymbolFilter(IEnumerable<string> symbols) : QuoteFilter
     public override bool Pass(Quote quote)
     {
         return symbols.Contains(quote.Symbol, StringComparer.OrdinalIgnoreCase);
+    }
+}
+
+
+public sealed class CurrencyFilter(IEnumerable<string> currencies) : QuoteFilter
+{
+    private static Lazy<Dictionary<string, Instrument>>? _cachedInstrumentsBySymbol;
+
+    public override bool Pass(Quote quote)
+    {
+        if (string.IsNullOrWhiteSpace(quote.Symbol))
+        {
+            return false;
+        }
+
+        var lazyCache = Volatile.Read(ref _cachedInstrumentsBySymbol);
+        if (lazyCache is null)
+        {
+            var newCache = new Lazy<Dictionary<string, Instrument>>(
+                () => ServiceLocator.GetService<IStaticDataService>().GetAllInstruments()
+                    .Where(instrument => !string.IsNullOrWhiteSpace(instrument.Symbol))
+                    .Select(instrument => new
+                    {
+                        Symbol = instrument.Symbol.Trim(),
+                        Instrument = instrument
+                    })
+                    .ToDictionary(entry => entry.Symbol, entry => entry.Instrument, StringComparer.OrdinalIgnoreCase),
+                LazyThreadSafetyMode.ExecutionAndPublication);
+            Interlocked.CompareExchange(ref _cachedInstrumentsBySymbol, newCache, null);
+            lazyCache = _cachedInstrumentsBySymbol;
+        }
+
+        if (!lazyCache.Value.TryGetValue(quote.Symbol.Trim(), out var instrument))
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(instrument.Currency))
+        {
+            return false;
+        }
+
+        return currencies.Contains(instrument.Currency);
     }
 }
 
