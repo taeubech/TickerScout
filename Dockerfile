@@ -3,7 +3,7 @@ FROM node:18-alpine AS frontend-build
 WORKDIR /app
 COPY frontend/package*.json ./
 RUN npm ci
-COPY . .
+COPY frontend .
 # Accept VITE_API_BASE_URL as build argument and set as environment variable for the build
 ARG VITE_API_BASE_URL
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
