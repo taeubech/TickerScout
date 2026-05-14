@@ -1,6 +1,3 @@
-using System.Threading;
-using TickerScout.Backend.Services;
-
 namespace TickerScout.Backend.Models;
 
 public abstract class QuoteFilter
@@ -27,45 +24,18 @@ public sealed class SymbolFilter(IEnumerable<string> symbols) : QuoteFilter
 }
 
 
-public sealed class CurrencyFilter : QuoteFilter
+public sealed class CurrencyFilter(IEnumerable<string> currencies, IEnumerable<Instrument> instruments) : QuoteFilter
 {
-    private static Lazy<Dictionary<string, Instrument>>? _cachedInstrumentsBySymbol;
+    private readonly Dictionary<string, Instrument> _instrumentsBySymbol = instruments
+        .Where(instrument => !string.IsNullOrWhiteSpace(instrument.Symbol))
+        .GroupBy(instrument => instrument.Symbol.Trim(), StringComparer.OrdinalIgnoreCase)
+        .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
 
-    private readonly Dictionary<string, Instrument> _instrumentsBySymbol;
-    private readonly HashSet<string> _currencies;
-
-    public CurrencyFilter(IEnumerable<string> currencies, IStaticDataService staticDataService)
-    {
-        _currencies = new HashSet<string>(
-            currencies
-                .Where(currency => !string.IsNullOrWhiteSpace(currency))
-                .Select(currency => currency.Trim()),
-            StringComparer.OrdinalIgnoreCase);
-
-        if (_currencies.Count == 0)
-        {
-            throw new ArgumentException("At least one currency must be provided.", nameof(currencies));
-        }
-
-        var lazyCache = Volatile.Read(ref _cachedInstrumentsBySymbol);
-        if (lazyCache is null)
-        {
-            var newCache = new Lazy<Dictionary<string, Instrument>>(
-                () => staticDataService.GetAllInstruments()
-                    .Where(instrument => !string.IsNullOrWhiteSpace(instrument.Symbol))
-                    .Select(instrument => new
-                    {
-                        Symbol = instrument.Symbol.Trim(),
-                        Instrument = instrument
-                    })
-                    .ToDictionary(entry => entry.Symbol, entry => entry.Instrument, StringComparer.OrdinalIgnoreCase),
-                LazyThreadSafetyMode.ExecutionAndPublication);
-            Interlocked.CompareExchange(ref _cachedInstrumentsBySymbol, newCache, null);
-            lazyCache = _cachedInstrumentsBySymbol;
-        }
-
-        _instrumentsBySymbol = lazyCache.Value;
-    }
+    private readonly HashSet<string> _currencies = new(
+        currencies
+            .Where(currency => !string.IsNullOrWhiteSpace(currency))
+            .Select(currency => currency.Trim()),
+        StringComparer.OrdinalIgnoreCase);
 
     public override bool Pass(Quote quote)
     {
