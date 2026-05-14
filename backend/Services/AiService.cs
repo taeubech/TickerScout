@@ -57,6 +57,20 @@ public sealed class AiService(SessionStore sessionStore, IQuoteFilterService quo
                 },
                 {
                   "type": "object",
+                  "description": "Filter quotes by currency(ies)",
+                  "properties": {
+                    "type": { "const": "Currency" },
+                    "currencies": {
+                      "type": "array",
+                      "items": { "type": "string" },
+                      "description": "List of currencies to include (e.g., ['USD', 'EUR'])"
+                    }
+                  },
+                  "required": ["type", "currencies"],
+                  "additionalProperties": false
+                },
+                        {
+                  "type": "object",
                   "description": "Filter quotes where Last price is greater than a threshold",
                   "properties": {
                     "type": { "const": "LastGreaterThan" },
@@ -228,6 +242,7 @@ public sealed class AiService(SessionStore sessionStore, IQuoteFilterService quo
             "instrumentTypes" => new InstrumentTypeFilter([.. jsonElement.GetProperty("instrumentTypes").EnumerateArray().Select(e => Enum.Parse<InstrumentType>(e.GetString()!))]),
             "symbols" => new SymbolFilter([.. jsonElement.GetProperty("symbols").EnumerateArray().Select(e => e.GetString()!)]),
             "threshold" => new LastGreaterThanFilter(jsonElement.GetProperty("threshold").GetDouble()),
+            "currencies" => new CurrencyFilter([.. jsonElement.GetProperty("currencies").EnumerateArray().Select(e => e.GetString()!)]),
             "Not" => new NotFilter(JsonToQuoteFilter(jsonElement.GetProperty("innerFilter"))),
             "And" => new AndFilter(JsonToQuoteFilter(jsonElement.GetProperty("filter1")), JsonToQuoteFilter(jsonElement.GetProperty("filter2"))),
             "Or" => new OrFilter(JsonToQuoteFilter(jsonElement.GetProperty("filter1")), JsonToQuoteFilter(jsonElement.GetProperty("filter2"))),
