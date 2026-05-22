@@ -38,6 +38,7 @@ COPY --from=frontend-build /app/dist /app/wwwroot/
 
 ARG PORT=8080
 
+
 # Set environment variable for ASP.NET to listen on all interfaces
 ENV ASPNETCORE_URLS=http://+:${PORT:-8080}
 
