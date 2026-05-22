@@ -4,7 +4,7 @@ using TickerScout.Backend.Models;
 
 namespace TickerScout.Backend.Services;
 
-public sealed class StaticDataService(IConfiguration configuration) : IStaticDataService
+public sealed class StaticDataService(IConfiguration configuration, ILogger<StaticDataService> logger) : IStaticDataService
 {
     private const string DatabaseName = "TickerScout";
     private const string CollectionName = "Instruments";
@@ -12,6 +12,7 @@ public sealed class StaticDataService(IConfiguration configuration) : IStaticDat
     public IEnumerable<Instrument> GetAllInstruments()
     {
         string connectionString = ResolveEnvironmentVariables(configuration.GetConnectionString("MongoDb") ?? throw new InvalidOperationException("MongoDB connection string 'MongoDb' is not configured."));
+        logger.LogInformation("Using MongoDB connection string: {ConnectionString}", connectionString);
 
         MongoClient client = new(connectionString);
         try
