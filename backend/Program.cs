@@ -36,11 +36,16 @@ ServiceLocator.Initialize(app.Services);
 
 app.UseCors("DevCors");
 
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 app.MapOpenApi();
 app.MapScalarApiReference();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 app.MapHub<QuoteHub>("/hubs/quotes");
 app.MapControllers();
+
+app.MapFallbackToFile("index.html");
 
 app.Run();
