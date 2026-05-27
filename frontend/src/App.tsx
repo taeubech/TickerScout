@@ -21,7 +21,7 @@ import './App.css'
 
 ModuleRegistry.registerModules([AllCommunityModule])
 
-const HUB_URL = import.meta.env.VITE_HUB_URL ?? 'http://localhost:5051/hubs/quotes'
+const HUB_URL = import.meta.env.VITE_HUB_URL ?? '/hubs/quotes'
 
 const moneyFormatter = new Intl.NumberFormat('en-US', {
   minimumFractionDigits: 2,
