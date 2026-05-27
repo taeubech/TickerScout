@@ -1,4 +1,4 @@
-const AI_PROMPT_URL = import.meta.env.VITE_API_BASE_URL ?? ''
+const AI_PROMPT_URL = 'https://localhost:7283'
 
 interface AiPromptResponse {
   reply: string
