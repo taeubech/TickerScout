@@ -203,7 +203,7 @@ public sealed class AiService(
 
         if (options.Username.Contains(':'))
         {
-            throw new InvalidOperationException("Ai:Username cannot contain ':' when basic authentication is used.");
+            throw new InvalidOperationException("Ai:Username cannot contain ':' because it is used as part of the basic authentication credentials.");
         }
 
         return new AIProjectClient(new Uri(options.Endpoint), new StaticAuthenticationTokenProvider(options.Username, options.AccessToken));
