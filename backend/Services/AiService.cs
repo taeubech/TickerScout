@@ -167,11 +167,11 @@ public sealed class AiService(
         ResponseResult response;
         do
         {
-            var options = new CreateResponseOptions();
+            var responseOptions = new CreateResponseOptions();
             foreach (var item in inputItems)
-                options.InputItems.Add(item);
+                responseOptions.InputItems.Add(item);
 
-            response = responseClient.CreateResponse(options);
+            response = responseClient.CreateResponse(responseOptions);
             toolCallMade = false;
             foreach (ResponseItem outputItem in response.OutputItems)
             {
@@ -204,7 +204,7 @@ public sealed class AiService(
         string basicCredential = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{options.Username}:{options.AccessToken}"));
         AuthenticationPolicy authenticationPolicy = ApiKeyAuthenticationPolicy.CreateBasicAuthorizationPolicy(new ApiKeyCredential(basicCredential));
 
-        return new AIProjectClient(authenticationPolicy: authenticationPolicy, endpoint: new Uri(options.Endpoint), options: new AIProjectClientOptions());
+        return new AIProjectClient(authenticationPolicy, new Uri(options.Endpoint), new AIProjectClientOptions());
     }
 
     private FunctionCallOutputResponseItem ResolveToolCall(FunctionCallResponseItem functionCall, string? sessionId)
