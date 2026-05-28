@@ -201,6 +201,11 @@ public sealed class AiService(
             throw new InvalidOperationException("Both Ai:Username and Ai:AccessToken must be configured together.");
         }
 
+        if (options.Username.Contains(':'))
+        {
+            throw new InvalidOperationException("Ai:Username cannot contain ':' when basic authentication is used.");
+        }
+
         return new AIProjectClient(new Uri(options.Endpoint), new StaticAuthenticationTokenProvider(options.Username, options.AccessToken));
     }
 
