@@ -212,6 +212,9 @@ public sealed class AiService(
             expiresOn: DateTimeOffset.MaxValue,
             refreshOn: null);
 
+        public override GetTokenOptions CreateTokenOptions(IReadOnlyDictionary<string, object> properties)
+            => new(properties);
+
         public override AuthenticationToken GetToken(GetTokenOptions options, CancellationToken cancellationToken)
             => _token;
 
