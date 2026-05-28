@@ -201,10 +201,22 @@ public sealed class AiService(
             throw new InvalidOperationException("Both Ai:Username and Ai:AccessToken must be configured together.");
         }
 
-        string basicCredential = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{options.Username}:{options.AccessToken}"));
-        AuthenticationPolicy authenticationPolicy = ApiKeyAuthenticationPolicy.CreateBasicAuthorizationPolicy(new ApiKeyCredential(basicCredential));
+        return new AIProjectClient(new Uri(options.Endpoint), new StaticAuthenticationTokenProvider(options.Username, options.AccessToken));
+    }
 
-        return new AIProjectClient(authenticationPolicy, new Uri(options.Endpoint), new AIProjectClientOptions());
+    private sealed class StaticAuthenticationTokenProvider(string username, string accessToken) : AuthenticationTokenProvider
+    {
+        private readonly AuthenticationToken _token = new(
+            tokenValue: Convert.ToBase64String(Encoding.UTF8.GetBytes($"{username}:{accessToken}")),
+            tokenType: "Basic",
+            expiresOn: DateTimeOffset.MaxValue,
+            refreshOn: null);
+
+        public override AuthenticationToken GetToken(GetTokenOptions options, CancellationToken cancellationToken)
+            => _token;
+
+        public override ValueTask<AuthenticationToken> GetTokenAsync(GetTokenOptions options, CancellationToken cancellationToken)
+            => ValueTask.FromResult(_token);
     }
 
     private FunctionCallOutputResponseItem ResolveToolCall(FunctionCallResponseItem functionCall, string? sessionId)
