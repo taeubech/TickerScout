@@ -2,20 +2,22 @@ using Azure.AI.Extensions.OpenAI;
 using Azure.AI.Projects;
 using Azure.AI.Projects.Agents;
 using Azure.Identity;
+using Microsoft.Extensions.Options;
 using OpenAI.Responses;
 using System.ClientModel;
+using System.ClientModel.Primitives;
+using System.Text;
 using System.Text.Json;
 using TickerScout.Backend.Models;
 
 namespace TickerScout.Backend.Services;
 
-public sealed class AiService(SessionStore sessionStore, IQuoteFilterService quoteFilterService) : IAiService
+public sealed class AiService(
+    SessionStore sessionStore,
+    IQuoteFilterService quoteFilterService,
+    IOptions<AiOptions> aiOptions) : IAiService
 {
 #pragma warning disable OPENAI001
-
-    const string endpoint = "https://tickerscout-agent-resource.services.ai.azure.com/api/projects/tickerscout-agent";
-    const string modelDeploymentName = "gpt-4o";
-    const string agentName = "tickerscout-agent";
 
     private static readonly FunctionTool SetFiltersTool = ResponseTool.CreateFunctionTool(
         functionName: "set_filters",
@@ -134,18 +136,18 @@ public sealed class AiService(SessionStore sessionStore, IQuoteFilterService quo
 
     public Task<AiPromptResponse> ProcessPromptAsync(AiPromptRequest request, CancellationToken cancellationToken = default)
     {
-        // The AzureCliCredential will use your logged-in Azure CLI identity, make sure to run `az login` first
-        AIProjectClient projectClient = new(endpoint: new Uri(endpoint), tokenProvider: new DefaultAzureCredential());
+        AIProjectClient projectClient = CreateProjectClient();
+        AiOptions options = aiOptions.Value;
 
         // Create your agent with the SetFilters function tool
-        DeclarativeAgentDefinition agentDefinition = new(model: modelDeploymentName)
+        DeclarativeAgentDefinition agentDefinition = new(model: options.ModelDeploymentName)
         {
             Tools = { SetFiltersTool }
         };
 
         // Creates an agent or bumps the existing agent version if parameters have changed
         ClientResult<ProjectsAgentVersion> clientResult = projectClient.AgentAdministrationClient.CreateAgentVersion(
-            agentName: agentName,
+            agentName: options.AgentName,
             options: new(agentDefinition));
         var agentVersion = clientResult.Value;
         Console.WriteLine($"Agent created (id: {agentVersion.Id}, name: {agentVersion.Name}, version: {agentVersion.Version})");
@@ -165,11 +167,11 @@ public sealed class AiService(SessionStore sessionStore, IQuoteFilterService quo
         ResponseResult response;
         do
         {
-            var options = new CreateResponseOptions();
+            var responseOptions = new CreateResponseOptions();
             foreach (var item in inputItems)
-                options.InputItems.Add(item);
+                responseOptions.InputItems.Add(item);
 
-            response = responseClient.CreateResponse(options);
+            response = responseClient.CreateResponse(responseOptions);
             toolCallMade = false;
             foreach (ResponseItem outputItem in response.OutputItems)
             {
@@ -183,6 +185,46 @@ public sealed class AiService(SessionStore sessionStore, IQuoteFilterService quo
         } while (toolCallMade);
 
         return Task.FromResult(new AiPromptResponse { Reply = response.GetOutputText() });
+    }
+
+    private AIProjectClient CreateProjectClient()
+    {
+        AiOptions options = aiOptions.Value;
+
+        if (string.IsNullOrWhiteSpace(options.Username) && string.IsNullOrWhiteSpace(options.AccessToken))
+        {
+            return new AIProjectClient(endpoint: new Uri(options.Endpoint), tokenProvider: new DefaultAzureCredential());
+        }
+
+        if (string.IsNullOrWhiteSpace(options.Username) || string.IsNullOrWhiteSpace(options.AccessToken))
+        {
+            throw new InvalidOperationException("Both Ai:Username and Ai:AccessToken must be configured together.");
+        }
+
+        if (options.Username.Contains(':'))
+        {
+            throw new InvalidOperationException("Ai:Username cannot contain ':' because it is used as part of the basic authentication credentials.");
+        }
+
+        return new AIProjectClient(new Uri(options.Endpoint), new StaticAuthenticationTokenProvider(options.Username, options.AccessToken));
+    }
+
+    private sealed class StaticAuthenticationTokenProvider(string username, string accessToken) : AuthenticationTokenProvider
+    {
+        private readonly AuthenticationToken _token = new(
+            tokenValue: Convert.ToBase64String(Encoding.UTF8.GetBytes($"{username}:{accessToken}")),
+            tokenType: "Basic",
+            expiresOn: DateTimeOffset.MaxValue,
+            refreshOn: null);
+
+        public override GetTokenOptions CreateTokenOptions(IReadOnlyDictionary<string, object> properties)
+            => new(properties);
+
+        public override AuthenticationToken GetToken(GetTokenOptions options, CancellationToken cancellationToken)
+            => _token;
+
+        public override ValueTask<AuthenticationToken> GetTokenAsync(GetTokenOptions options, CancellationToken cancellationToken)
+            => ValueTask.FromResult(_token);
     }
 
     private FunctionCallOutputResponseItem ResolveToolCall(FunctionCallResponseItem functionCall, string? sessionId)

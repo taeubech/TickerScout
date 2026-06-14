@@ -4,6 +4,7 @@ using TickerScout.Backend.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.Configure<AiOptions>(builder.Configuration.GetSection("Ai"));
 builder.Services.Configure<QuoteOptions>(builder.Configuration.GetSection("Quote"));
 builder.Services.AddSingleton<QuoteStore>();
 builder.Services.AddSingleton<SessionStore>();
