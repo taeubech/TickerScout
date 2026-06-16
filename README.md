@@ -28,7 +28,10 @@ npm install
 npm run dev
 ```
 
-The frontend connects to the SignalR hub using `VITE_HUB_URL` (defaults to `http://localhost:5051/hubs/quotes`).
+The frontend connects to the backend using:
+
+- `VITE_HUB_URL` for the SignalR hub (defaults to `/hubs/quotes` in the app, with Vite proxying to `http://localhost:5051` during local development)
+- `VITE_AI_API_URL` for AI HTTP requests (defaults to same-origin, so Railway and other backend-served deployments can call `/api/ai/prompt` without extra configuration)
 
 ## Configurable symbols
 
