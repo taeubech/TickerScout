@@ -1,11 +1,11 @@
-const AI_PROMPT_URL = 'https://localhost:7283'
+const AI_API_BASE_URL = import.meta.env.VITE_AI_API_URL?.replace(/\/$/, '') ?? ''
 
 interface AiPromptResponse {
   reply: string
 }
 
 export async function sendPrompt(prompt: string, sessionId?: string): Promise<string> {
-  const response = await fetch(`${AI_PROMPT_URL}/api/ai/prompt`, {
+  const response = await fetch(`${AI_API_BASE_URL}/api/ai/prompt`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ prompt, sessionId }),
