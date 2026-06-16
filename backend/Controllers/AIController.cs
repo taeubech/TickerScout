@@ -1,3 +1,4 @@
+using Azure.Identity;
 using Microsoft.AspNetCore.Mvc;
 using TickerScout.Backend.Models;
 using TickerScout.Backend.Services;
@@ -26,6 +27,15 @@ public sealed class AIController(IAiService aiService, ILogger<AIController> log
         {
             var response = await _aiService.ProcessPromptAsync(request, cancellationToken);
             return Ok(response);
+        }
+        catch (CredentialUnavailableException ex)
+        {
+            _logger.LogError(ex, "Azure credential unavailable for AI service.");
+            return Problem(
+                detail: "The AI service credentials are not configured. " +
+                        "Set the Ai:Username and Ai:AccessToken configuration values " +
+                        "(or the Ai__Username and Ai__AccessToken environment variables) for non-Azure deployments.",
+                statusCode: StatusCodes.Status503ServiceUnavailable);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
