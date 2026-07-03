@@ -15,7 +15,8 @@ namespace TickerScout.Backend.Services;
 public sealed class AiService(
     SessionStore sessionStore,
     IQuoteFilterService quoteFilterService,
-    IOptions<AiOptions> aiOptions) : IAiService
+    IOptions<AiOptions> aiOptions,
+    ILogger<AiService> logger) : IAiService
 {
 #pragma warning disable OPENAI001
 
@@ -190,6 +191,8 @@ public sealed class AiService(
     private AIProjectClient CreateProjectClient()
     {
         AiOptions options = aiOptions.Value;
+
+        logger.LogInformation("Creating AIProjectClient with endpoint: {Endpoint}, user {Username} and AccessToken: {AccessToken}", options.Endpoint, options.Username, options.AccessToken);
 
         if (string.IsNullOrWhiteSpace(options.Username) && string.IsNullOrWhiteSpace(options.AccessToken))
         {
