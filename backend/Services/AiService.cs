@@ -284,10 +284,10 @@ public sealed class AiService(
     {
         QuoteFilter filter = jsonElement.GetProperty("type").GetString() switch
         {
-            "instrumentTypes" => new InstrumentTypeFilter([.. jsonElement.GetProperty("instrumentTypes").EnumerateArray().Select(e => Enum.Parse<InstrumentType>(e.GetString()!))]),
-            "symbols" => new SymbolFilter([.. jsonElement.GetProperty("symbols").EnumerateArray().Select(e => e.GetString()!)]),
-            "threshold" => new LastGreaterThanFilter(jsonElement.GetProperty("threshold").GetDouble()),
-            "currencies" => new CurrencyFilter([.. jsonElement.GetProperty("currencies").EnumerateArray().Select(e => e.GetString()!)]),
+            "InstrumentType" => new InstrumentTypeFilter([.. jsonElement.GetProperty("instrumentTypes").EnumerateArray().Select(e => Enum.Parse<InstrumentType>(e.GetString()!))]),
+            "Symbol" => new SymbolFilter([.. jsonElement.GetProperty("symbols").EnumerateArray().Select(e => e.GetString()!)]),
+            "LastGreaterThan" => new LastGreaterThanFilter(jsonElement.GetProperty("threshold").GetDouble()),
+            "Currency" => new CurrencyFilter([.. jsonElement.GetProperty("currencies").EnumerateArray().Select(e => e.GetString()!)]),
             "Not" => new NotFilter(JsonToQuoteFilter(jsonElement.GetProperty("innerFilter"))),
             "And" => new AndFilter(JsonToQuoteFilter(jsonElement.GetProperty("filter1")), JsonToQuoteFilter(jsonElement.GetProperty("filter2"))),
             "Or" => new OrFilter(JsonToQuoteFilter(jsonElement.GetProperty("filter1")), JsonToQuoteFilter(jsonElement.GetProperty("filter2"))),
