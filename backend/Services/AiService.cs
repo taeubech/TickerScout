@@ -20,7 +20,7 @@ public sealed class AiService(
 {
 #pragma warning disable OPENAI001
     private readonly object _agentReferenceLock = new();
-    private AgentReference? _cachedAgentReference;
+    private volatile AgentReference? _cachedAgentReference;
 
     private static readonly FunctionTool SetFiltersTool = ResponseTool.CreateFunctionTool(
         functionName: "set_filters",
@@ -140,7 +140,7 @@ public sealed class AiService(
     public Task<AiPromptResponse> ProcessPromptAsync(AiPromptRequest request, CancellationToken cancellationToken = default)
     {
         AIProjectClient projectClient = CreateProjectClient();
-        AgentReference agentReference = GetOrCreateAgentReference(projectClient);
+        AgentReference agentReference = GetOrCreateAgentReference();
 
         // Resolve or create the conversation ID for this session.
         // When a SessionId is provided and a conversation already exists for that session,
@@ -177,7 +177,7 @@ public sealed class AiService(
         return Task.FromResult(new AiPromptResponse { Reply = response.GetOutputText() });
     }
 
-    private AgentReference GetOrCreateAgentReference(AIProjectClient projectClient)
+    private AgentReference GetOrCreateAgentReference()
     {
         if (_cachedAgentReference is not null)
         {
@@ -192,6 +192,7 @@ public sealed class AiService(
             }
 
             AiOptions options = aiOptions.Value;
+            AIProjectClient projectClient = CreateProjectClient();
 
             DeclarativeAgentDefinition agentDefinition = new(model: options.ModelDeploymentName)
             {
