@@ -19,8 +19,9 @@ public sealed class AiService(
     ILogger<AiService> logger) : IAiService
 {
 #pragma warning disable OPENAI001
-    private readonly object _agentReferenceLock = new();
-    private volatile AgentReference? _cachedAgentReference;
+    private readonly Lazy<AgentReference> _cachedAgentReference = new(
+        valueFactory: () => CreateAgentReference(),
+        mode: LazyThreadSafetyMode.ExecutionAndPublication);
 
     private static readonly FunctionTool SetFiltersTool = ResponseTool.CreateFunctionTool(
         functionName: "set_filters",
@@ -179,35 +180,26 @@ public sealed class AiService(
 
     private AgentReference GetOrCreateAgentReference()
     {
-        if (_cachedAgentReference is not null)
+        return _cachedAgentReference.Value;
+    }
+
+    private AgentReference CreateAgentReference()
+    {
+        AiOptions options = aiOptions.Value;
+        AIProjectClient projectClient = CreateProjectClient();
+
+        DeclarativeAgentDefinition agentDefinition = new(model: options.ModelDeploymentName)
         {
-            return _cachedAgentReference;
-        }
+            Tools = { SetFiltersTool }
+        };
 
-        lock (_agentReferenceLock)
-        {
-            if (_cachedAgentReference is not null)
-            {
-                return _cachedAgentReference;
-            }
+        ClientResult<ProjectsAgentVersion> clientResult = projectClient.AgentAdministrationClient.CreateAgentVersion(
+            agentName: options.AgentName,
+            options: new(agentDefinition));
+        ProjectsAgentVersion agentVersion = clientResult.Value;
 
-            AiOptions options = aiOptions.Value;
-            AIProjectClient projectClient = CreateProjectClient();
-
-            DeclarativeAgentDefinition agentDefinition = new(model: options.ModelDeploymentName)
-            {
-                Tools = { SetFiltersTool }
-            };
-
-            ClientResult<ProjectsAgentVersion> clientResult = projectClient.AgentAdministrationClient.CreateAgentVersion(
-                agentName: options.AgentName,
-                options: new(agentDefinition));
-            ProjectsAgentVersion agentVersion = clientResult.Value;
-
-            logger.LogInformation("Using AI agent {AgentName} version {AgentVersion}", agentVersion.Name, agentVersion.Version);
-            _cachedAgentReference = new(name: agentVersion.Name, version: agentVersion.Version);
-            return _cachedAgentReference;
-        }
+        logger.LogInformation("Using AI agent {AgentName} version {AgentVersion}", agentVersion.Name, agentVersion.Version);
+        return new(name: agentVersion.Name, version: agentVersion.Version);
     }
 
     private AIProjectClient CreateProjectClient()
