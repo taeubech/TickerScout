@@ -21,7 +21,7 @@ public sealed class AiService(
 #pragma warning disable OPENAI001
     private AgentReference? _cachedAgentReference;
     private bool _cachedAgentReferenceInitialized;
-    private readonly object _cachedAgentReferenceLock = new object();
+    private object _cachedAgentReferenceLock = new object();
 
     private static readonly FunctionTool SetFiltersTool = ResponseTool.CreateFunctionTool(
         functionName: "set_filters",
