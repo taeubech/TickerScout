@@ -19,9 +19,9 @@ public sealed class AiService(
     ILogger<AiService> logger) : IAiService
 {
 #pragma warning disable OPENAI001
-    private readonly Lazy<AgentReference> _cachedAgentReference = new(
-        valueFactory: () => CreateAgentReference(),
-        mode: LazyThreadSafetyMode.ExecutionAndPublication);
+    private AgentReference? _cachedAgentReference;
+    private bool _cachedAgentReferenceInitialized;
+    private object _cachedAgentReferenceLock = new();
 
     private static readonly FunctionTool SetFiltersTool = ResponseTool.CreateFunctionTool(
         functionName: "set_filters",
@@ -180,7 +180,11 @@ public sealed class AiService(
 
     private AgentReference GetOrCreateAgentReference()
     {
-        return _cachedAgentReference.Value;
+        return LazyInitializer.EnsureInitialized(
+            target: ref _cachedAgentReference,
+            initialized: ref _cachedAgentReferenceInitialized,
+            syncLock: ref _cachedAgentReferenceLock,
+            valueFactory: CreateAgentReference)!;
     }
 
     private AgentReference CreateAgentReference()
