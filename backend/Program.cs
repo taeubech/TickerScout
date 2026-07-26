@@ -10,7 +10,7 @@ builder.Services.AddSingleton<QuoteStore>();
 builder.Services.AddSingleton<SessionStore>();
 builder.Services.AddHostedService<QuoteSimulatorService>();
 builder.Services.AddSignalR();
-builder.Services.AddScoped<IAiService, AiService>();
+builder.Services.AddSingleton<IAiService, AiService>();
 builder.Services.AddSingleton<IStaticDataService, StaticDataService>();
 builder.Services.AddSingleton<IQuoteFilterService, QuoteFilterService>();
 builder.Services.AddControllers();
