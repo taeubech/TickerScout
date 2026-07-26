@@ -19,6 +19,8 @@ public sealed class AiService(
     ILogger<AiService> logger) : IAiService
 {
 #pragma warning disable OPENAI001
+    private readonly object _agentReferenceLock = new();
+    private AgentReference? _cachedAgentReference;
 
     private static readonly FunctionTool SetFiltersTool = ResponseTool.CreateFunctionTool(
         functionName: "set_filters",
@@ -138,20 +140,7 @@ public sealed class AiService(
     public Task<AiPromptResponse> ProcessPromptAsync(AiPromptRequest request, CancellationToken cancellationToken = default)
     {
         AIProjectClient projectClient = CreateProjectClient();
-        AiOptions options = aiOptions.Value;
-
-        // Create your agent with the SetFilters function tool
-        DeclarativeAgentDefinition agentDefinition = new(model: options.ModelDeploymentName)
-        {
-            Tools = { SetFiltersTool }
-        };
-
-        // Creates an agent or bumps the existing agent version if parameters have changed
-        ClientResult<ProjectsAgentVersion> clientResult = projectClient.AgentAdministrationClient.CreateAgentVersion(
-            agentName: options.AgentName,
-            options: new(agentDefinition));
-        var agentVersion = clientResult.Value;
-        Console.WriteLine($"Agent created (id: {agentVersion.Id}, name: {agentVersion.Name}, version: {agentVersion.Version})");
+        AgentReference agentReference = GetOrCreateAgentReference(projectClient);
 
         // Resolve or create the conversation ID for this session.
         // When a SessionId is provided and a conversation already exists for that session,
@@ -159,7 +148,7 @@ public sealed class AiService(
         string conversationId = ResolveConversationId(projectClient, request.SessionId);
 
         ProjectResponsesClient responseClient
-            = projectClient.ProjectOpenAIClient.GetProjectResponsesClientForAgent(new(name: agentVersion.Name, version: agentVersion.Version), conversationId);
+            = projectClient.ProjectOpenAIClient.GetProjectResponsesClientForAgent(agentReference, conversationId);
 
         // Run the prompt through a tool-call loop so that any set_filters invocations
         // issued by the model are executed locally before returning the final reply.
@@ -186,6 +175,38 @@ public sealed class AiService(
         } while (toolCallMade);
 
         return Task.FromResult(new AiPromptResponse { Reply = response.GetOutputText() });
+    }
+
+    private AgentReference GetOrCreateAgentReference(AIProjectClient projectClient)
+    {
+        if (_cachedAgentReference is not null)
+        {
+            return _cachedAgentReference;
+        }
+
+        lock (_agentReferenceLock)
+        {
+            if (_cachedAgentReference is not null)
+            {
+                return _cachedAgentReference;
+            }
+
+            AiOptions options = aiOptions.Value;
+
+            DeclarativeAgentDefinition agentDefinition = new(model: options.ModelDeploymentName)
+            {
+                Tools = { SetFiltersTool }
+            };
+
+            ClientResult<ProjectsAgentVersion> clientResult = projectClient.AgentAdministrationClient.CreateAgentVersion(
+                agentName: options.AgentName,
+                options: new(agentDefinition));
+            ProjectsAgentVersion agentVersion = clientResult.Value;
+
+            logger.LogInformation("Using AI agent {AgentName} version {AgentVersion}", agentVersion.Name, agentVersion.Version);
+            _cachedAgentReference = new(name: agentVersion.Name, version: agentVersion.Version);
+            return _cachedAgentReference;
+        }
     }
 
     private AIProjectClient CreateProjectClient()
